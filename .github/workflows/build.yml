@@ -2,8 +2,9 @@
 #   Linux    ZipNotes-linux-x86_64.AppImage  (linuxdeploy + Qt plugin)
 #   macOS    ZipNotes-macos-arm64.dmg        (scripts/build-macos.sh --bundle, ad-hoc signed)
 #   Windows  ZipNotes-windows-x64.zip        (windeployqt + vcpkg DLLs)
-# Each package is then started once: it creates a demo vault, opens a note with a Mermaid diagram and saves
-# a screenshot (smoke-<platform> artifact), so a package that builds but cannot start fails the run.
+# Each package is then started once: it creates a demo vault, opens a note with a Mermaid diagram, waits for
+# Qt WebEngine to render it and saves a screenshot (smoke-<platform> artifact); a package that cannot start
+# or cannot render fails the run.
 # Every run uploads them as workflow artifacts; a v* tag also publishes them as a GitHub release.
 name: build
 
@@ -37,7 +38,7 @@ jobs:
         run: |
           sudo apt-get update
           sudo apt-get install -y --no-install-recommends \
-            ninja-build file xvfb libsodium-dev libzip-dev zipcmp zipmerge ziptool \
+            ninja-build file xvfb gdb libsodium-dev libzip-dev zipcmp zipmerge ziptool \
             libgl1-mesa-dev libegl1 libxkbcommon0 libxkbcommon-x11-0 libxcb-cursor0 libfontconfig1 libdbus-1-3 \
             libnss3 libnspr4 libxcomposite1 libxdamage1 libxrandr2 libxtst6 libxshmfence1 libgbm1 libxkbfile1 \
             libasound2t64
@@ -72,15 +73,32 @@ jobs:
             --desktop-file packaging/linux/zipnotes.desktop --icon-file resources/icons/zipnotes.svg
           mv ZipNotes*.AppImage ZipNotes-linux-x86_64.AppImage
 
-      # runs as the unprivileged runner user with the Chromium sandbox on, like on a user's machine
+      # runs as the unprivileged runner user with the Chromium sandbox on, like on a user's machine;
+      # if the AppImage does not start, the step prints a backtrace and tries the unpackaged binary for comparison
       - name: Smoke test
         env:
           ZN_PW: ci-smoke-password
           APPIMAGE_EXTRACT_AND_RUN: 1
         run: |
-          timeout 180 xvfb-run -a -s "-screen 0 1600x1000x24" ./ZipNotes-linux-x86_64.AppImage "$RUNNER_TEMP/smoke.zip" \
-            --password-env ZN_PW --create-demo --size 1320x840 --steps "search:hub;wait:8000" --screenshot "$PWD/smoke-linux.png"
-          test -s smoke-linux.png
+          smoke() {  # smoke <program> [wrapper...]: create a demo vault, open a Mermaid note, save a screenshot
+            rm -f "$RUNNER_TEMP/smoke.zip" "$RUNNER_TEMP/smoke.zip.lock" smoke-linux.png
+            env -u LD_LIBRARY_PATH -u QT_PLUGIN_PATH -u QML2_IMPORT_PATH \
+              timeout 300 xvfb-run -a -s "-screen 0 1600x1000x24" "${@:2}" "$1" "$RUNNER_TEMP/smoke.zip" \
+              --password-env ZN_PW --create-demo --size 1320x840 --steps "search:hub;wait:3000;diagrams:90000" --screenshot "$PWD/smoke-linux.png"
+          }
+          if smoke ./ZipNotes-linux-x86_64.AppImage && test -s smoke-linux.png; then
+            exit 0
+          fi
+          echo "::error::the AppImage did not start"
+          ./ZipNotes-linux-x86_64.AppImage --appimage-extract >/dev/null
+          echo "::group::extracted AppImage under gdb"
+          QTWEBENGINE_CHROMIUM_FLAGS="--enable-logging=stderr --v=0" QT_DEBUG_PLUGINS=1 \
+            smoke squashfs-root/usr/bin/ZipNotes gdb -q -batch -ex run -ex "thread apply all bt 30" --args || true
+          echo "::endgroup::"
+          echo "::group::unpackaged build/ZipNotes"
+          smoke build/ZipNotes && echo "exit code 0" || echo "exit code $?"
+          echo "::endgroup::"
+          exit 1
 
       - uses: actions/upload-artifact@v4
         if: always()
@@ -117,7 +135,7 @@ jobs:
           ZN_PW: ci-smoke-password
         run: |
           perl -e 'alarm 180; exec @ARGV' build-macos/ZipNotes.app/Contents/MacOS/ZipNotes "$RUNNER_TEMP/smoke.zip" \
-            --password-env ZN_PW --create-demo --size 1320x840 --steps "search:hub;wait:8000" --screenshot "$PWD/smoke-macos.png"
+            --password-env ZN_PW --create-demo --size 1320x840 --steps "search:hub;wait:3000;diagrams:90000" --screenshot "$PWD/smoke-macos.png"
           test -s smoke-macos.png
 
       - uses: actions/upload-artifact@v4
@@ -181,7 +199,7 @@ jobs:
         run: |
           $p = Start-Process -FilePath dist/bin/ZipNotes.exe -PassThru -ArgumentList @(
             "$env:RUNNER_TEMP\smoke.zip", '--password-env', 'ZN_PW', '--create-demo', '--size', '1320x840',
-            '--steps', 'search:hub;wait:8000', '--screenshot', "$PWD\smoke-windows.png")
+            '--steps', 'search:hub;wait:3000;diagrams:90000', '--screenshot', "$PWD\smoke-windows.png")
           $null = $p.Handle  # keeps the handle so ExitCode is available after the wait
           if (-not $p.WaitForExit(180000)) { $p.Kill(); throw 'ZipNotes did not exit within 3 minutes' }
           if ($p.ExitCode -ne 0) { throw "ZipNotes exited with code $($p.ExitCode)" }

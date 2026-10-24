@@ -33,6 +33,8 @@ public:
     void preview(DiagramKind kind, const QString& source, Callback cb);  // for the diagram editor
 
     bool available(DiagramKind kind, QString* why = nullptr) const;
+    bool busy() const { return !pending_.isEmpty(); }        // a render is running
+    QStringList errors() const { return errors_.values(); }  // renders that failed
     QString plantUmlCommand() const;
     static QStringList plantUmlArguments(const QString& command);
     void clearMemory();

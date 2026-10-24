@@ -1264,9 +1264,15 @@ void MainWindow::runAutomation(const QStringList& steps, const QString& screensh
 }
 
 void MainWindow::startAutomation(const QStringList& steps, const QString& screenshotPath) {
-    // Test hook: "search:<text>", "open:<n-th row>", "find:<text>", "folder:<name>", "tag:<tag>", "wait:<ms>".
+    // Test hook: "search:<text>", "open:<n-th row>", "find:<text>", "folder:<name>", "tag:<tag>", "wait:<ms>",
+    // "diagrams:<ms>" (before quitting, wait that long for diagrams to render; exit code 3 if one did not).
     int delay = 300;
+    int diagramsTimeoutMs = -1;
     for (const QString& step : steps) {
+        if (step.startsWith(QLatin1String("diagrams:"))) {
+            diagramsTimeoutMs = step.mid(9).toInt();
+            continue;
+        }
         QTimer::singleShot(delay, this, [this, step] {
             if (step.startsWith(QLatin1String("search:"))) {
                 search_->focusField();
@@ -1308,12 +1314,36 @@ void MainWindow::startAutomation(const QStringList& steps, const QString& screen
         delay += step.startsWith(QLatin1String("wait:")) ? step.mid(5).toInt() : 400;
     }
     if (!screenshotPath.isEmpty())
-        QTimer::singleShot(delay + 600, this, [this, screenshotPath] {
-            QPixmap pm = grab();
-            pm.save(screenshotPath);
-            qInfo().noquote() << "screenshot:" << screenshotPath;
-            QApplication::quit();
+        QTimer::singleShot(delay + 600, this, [this, screenshotPath, diagramsTimeoutMs] {
+            finishAutomation(screenshotPath, diagramsTimeoutMs);
         });
+}
+
+void MainWindow::finishAutomation(const QString& screenshotPath, int diagramsTimeoutMs) {
+    constexpr int kPoll = 250;
+    if (diagramsTimeoutMs > 0 && diagrams_->busy()) {
+        QTimer::singleShot(kPoll, this, [this, screenshotPath, diagramsTimeoutMs] {
+            finishAutomation(screenshotPath, std::max(0, diagramsTimeoutMs - kPoll));
+        });
+        return;
+    }
+    int code = 0;
+    if (diagramsTimeoutMs >= 0) {
+        if (diagrams_->busy()) {
+            qWarning("diagrams are still rendering");
+            code = 3;
+        }
+        for (const QString& error : diagrams_->errors()) {
+            qWarning().noquote() << "diagram failed:" << error;
+            code = 3;
+        }
+    }
+    // let the editor repaint the finished renders before grabbing
+    QTimer::singleShot(kPoll, this, [this, screenshotPath, code] {
+        grab().save(screenshotPath);
+        qInfo().noquote() << "screenshot:" << screenshotPath;
+        QApplication::exit(code);
+    });
 }
 
 }  // namespace zn

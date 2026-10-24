@@ -92,6 +92,7 @@ private:
     void syncToolbarToSplitter();
     void resetIdleTimer();
     void startAutomation(const QStringList& steps, const QString& screenshotPath);
+    void finishAutomation(const QString& screenshotPath, int diagramsTimeoutMs);
 
     VaultController* vc_;
     DiagramService* diagrams_;
