@@ -1,0 +1,7 @@
+<!DOCTYPE RCC><RCC version="1.0">
+<qresource prefix="/">
+    <file>icons/zipnotes.svg</file>
+    <file>demo/whiteboard.excalidraw</file>
+    <file>demo/whiteboard.png</file>
+</qresource>
+</RCC>

@@ -1,0 +1,4 @@
+/build*/
+/cmake-build-*/
+*.zip.lock
+.DS_Store

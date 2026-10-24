@@ -1,0 +1,94 @@
+<!doctype html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src qrc: 'unsafe-inline' 'unsafe-eval'; style-src 'unsafe-inline' qrc:; img-src data: blob: qrc:; font-src qrc: data:; connect-src qrc: data: blob:; worker-src blob: qrc:">
+<script>window.EXCALIDRAW_ASSET_PATH = "qrc:/web/excalidraw/";</script>
+<script src="qrc:///qtwebchannel/qwebchannel.js"></script>
+<script src="qrc:/web/react/react.production.min.js"></script>
+<script src="qrc:/web/react/react-dom.production.min.js"></script>
+<script src="qrc:/web/excalidraw/excalidraw.production.min.js"></script>
+<style>
+  html, body, #app { margin: 0; height: 100%; width: 100%; overflow: hidden; }
+  .error { font: 14px sans-serif; padding: 24px; color: #d73a3a; }
+</style>
+</head>
+<body>
+<div id="app"></div>
+<script>
+"use strict";
+let zn = null;
+let api = null;
+
+function start(sceneJson, dark) {
+  const { Excalidraw } = ExcalidrawLib;
+  let initialData = null;
+  if (sceneJson) {
+    try {
+      const d = JSON.parse(sceneJson);
+      initialData = {
+        elements: d.elements || [],
+        appState: Object.assign({}, d.appState || {}, { collaborators: new Map() }),
+        files: d.files || {},
+      };
+    } catch (e) {
+      document.getElementById("app").innerHTML = '<div class="error">The drawing is damaged: ' + String(e) + "</div>";
+      return;
+    }
+  }
+  const props = {
+    initialData,
+    theme: dark ? "dark" : "light",
+    excalidrawAPI: (a) => { api = a; },
+    UIOptions: {
+      canvasActions: { loadScene: false, saveToActiveFile: false, export: false, saveAsImage: false, toggleTheme: false },
+    },
+  };
+  ReactDOM.createRoot(document.getElementById("app")).render(React.createElement(Excalidraw, props));
+}
+
+function blobToDataUrl(blob) {
+  return new Promise((resolve) => {
+    const fr = new FileReader();
+    fr.onload = () => resolve(fr.result);
+    fr.readAsDataURL(blob);
+  });
+}
+
+// Called by the Done button: scene JSON for storage, a PNG preview for the note, text labels for search.
+async function znSave() {
+  try {
+    const { serializeAsJSON, exportToBlob } = ExcalidrawLib;
+    const elements = api.getSceneElements();
+    const appState = api.getAppState();
+    const files = api.getFiles();
+    const json = serializeAsJSON(elements, appState, files, "local");
+    let png = "";
+    if (elements.length > 0) {
+      const blob = await exportToBlob({
+        elements,
+        files,
+        mimeType: "image/png",
+        exportPadding: 16,
+        appState: Object.assign({}, appState, { exportBackground: false, exportWithDarkMode: false }),
+        getDimensions: (w, h) => ({ width: w * 2, height: h * 2, scale: 2 }),
+      });
+      png = await blobToDataUrl(blob);
+    }
+    const text = elements
+      .filter((e) => !e.isDeleted && (e.type === "text" || typeof e.text === "string"))
+      .map((e) => e.text || e.originalText || "")
+      .join("\n");
+    zn.saved(json, png, text);
+  } catch (e) {
+    zn.failed(String((e && e.message) || e));
+  }
+}
+
+new QWebChannel(qt.webChannelTransport, (channel) => {
+  zn = channel.objects.zn;
+  start(zn.scene, zn.dark);
+});
+</script>
+</body>
+</html>

@@ -1,0 +1,76 @@
+<!doctype html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src qrc: 'unsafe-inline' 'unsafe-eval'; style-src 'unsafe-inline'; img-src data: blob:; font-src qrc: data:">
+<script src="qrc:///qtwebchannel/qwebchannel.js"></script>
+<script src="qrc:/web/mermaid/mermaid.min.js"></script>
+<style>html, body { margin: 0; background: transparent; }</style>
+</head>
+<body>
+<script>
+"use strict";
+let zn = null;
+new QWebChannel(qt.webChannelTransport, (channel) => {
+  zn = channel.objects.zn;
+  zn.ready();
+});
+
+// Rasterizes an SVG string to a PNG data URL. Labels are plain SVG text (htmlLabels: false), so there is
+// no <foreignObject> and the canvas is not tainted.
+function svgToPng(svg, scale) {
+  return new Promise((resolve, reject) => {
+    const doc = new DOMParser().parseFromString(svg, "image/svg+xml");
+    const el = doc.documentElement;
+    let w = 0, h = 0;
+    const vb = el.getAttribute("viewBox");
+    if (vb) {
+      const p = vb.trim().split(/[\s,]+/).map(Number);
+      w = p[2]; h = p[3];
+    }
+    w = w || parseFloat(el.getAttribute("width")) || 800;
+    h = h || parseFloat(el.getAttribute("height")) || 600;
+    el.setAttribute("width", w);
+    el.setAttribute("height", h);
+    el.removeAttribute("style");
+    const xml = new XMLSerializer().serializeToString(el);
+    const img = new Image();
+    img.onload = () => {
+      const c = document.createElement("canvas");
+      c.width = Math.ceil(w * scale);
+      c.height = Math.ceil(h * scale);
+      const ctx = c.getContext("2d");
+      ctx.scale(scale, scale);
+      ctx.drawImage(img, 0, 0, w, h);
+      resolve(c.toDataURL("image/png"));
+    };
+    img.onerror = () => reject(new Error("could not rasterize the diagram"));
+    img.src = "data:image/svg+xml;charset=utf-8," + encodeURIComponent(xml);
+  });
+}
+
+let counter = 0;
+async function znRender(id, source, dark) {
+  try {
+    mermaid.initialize({
+      startOnLoad: false,
+      securityLevel: "strict",
+      theme: dark ? "dark" : "default",
+      htmlLabels: false,
+      flowchart: { htmlLabels: false },
+      class: { htmlLabels: false },
+      state: { htmlLabels: false },
+      fontFamily: "-apple-system, 'Segoe UI', 'Noto Sans', Ubuntu, Cantarell, sans-serif",
+      themeVariables: dark ? { background: "transparent" } : {},
+    });
+    const { svg } = await mermaid.render("zn-mermaid-" + (++counter), source);
+    zn.done(id, true, await svgToPng(svg, 2), "");
+  } catch (e) {
+    zn.done(id, false, "", String((e && (e.message || e.str)) || e));
+  } finally {
+    document.querySelectorAll("[id^='dzn-mermaid-'], [id^='zn-mermaid-']").forEach((n) => n.remove());
+  }
+}
+</script>
+</body>
+</html>
