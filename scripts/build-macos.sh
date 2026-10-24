@@ -52,16 +52,23 @@ deps() {  # libraries a Mach-O file loads, without its own install name
   otool -L "$1" | awk -v id="$id" 'NR > 1 && $1 != id { print $1 }'
 }
 
-# Homebrew's Qt has absolute install names, which macdeployqt turns into @executable_path/../Frameworks/...
-# That suits ZipNotes itself, but Qt WebEngine's helper process lives inside QtWebEngineCore.framework, where
-# that path leads nowhere: the helper could not load its frameworks, so Mermaid and Excalidraw never started.
+# Homebrew's Qt has absolute install names. macdeployqt turns them into @executable_path/../Frameworks/...,
+# which suits ZipNotes itself, and leaves Qt WebEngine's helper process (inside QtWebEngineCore.framework)
+# loading Qt straight from Homebrew. Without Homebrew the helper cannot start, and even with it the bundled
+# QtWebEngineCore it loads looks for its libraries relative to the helper: Mermaid and Excalidraw never ran.
 # Refer to bundled libraries through @rpath instead, give both executables an rpath to Contents/Frameworks
 # and drop rpaths that point back into Homebrew.
 fix_bundle_paths() {
-  local app=$1 f dep rp helper
+  local app=$1 f dep rp rel helper
   while IFS= read -r -d '' f; do
-    for dep in $(deps "$f" | grep '^@executable_path/../Frameworks/' || true); do
-      rewrite -change "$dep" "@rpath/${dep#@executable_path/../Frameworks/}" "$f"
+    for dep in $(deps "$f" | grep -E '^(@executable_path/../Frameworks/|/opt/|/usr/local/)' || true); do
+      case $dep in
+        @executable_path/*) rel=${dep#@executable_path/../Frameworks/} ;;
+        *) rel=${dep#*/lib/} ;;  # /opt/homebrew/opt/qtbase/lib/QtCore.framework/... -> QtCore.framework/...
+      esac
+      # a Homebrew library that macdeployqt did not copy stays as it is, and check_bundle reports it
+      [[ -e "$app/Contents/Frameworks/$rel" ]] || continue
+      rewrite -change "$dep" "@rpath/$rel" "$f"
     done
     for rp in $(rpaths "$f" | grep -E '^/(opt|usr/local)/' || true); do
       rewrite -delete_rpath "$rp" "$f"
