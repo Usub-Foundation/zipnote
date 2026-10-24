@@ -1,5 +1,7 @@
 # ZipNotes
 
+[![build](https://github.com/Usub-Foundation/zipnote/actions/workflows/build.yml/badge.svg)](https://github.com/Usub-Foundation/zipnote/actions/workflows/build.yml)
+
 A notes app in the spirit of Apple Notes whose notes live **only in an encrypted `.zip` file**. The app opens
 the archive like a folder of notes; folders, titles, text, diagrams and drawings inside it are encrypted
 (Argon2id + XChaCha20-Poly1305). Nothing is ever written to disk in plain text: not the notes, not the
@@ -72,6 +74,16 @@ Limitations:
 - Rolling back the **whole** archive to an older copy is not detected — true of any offline format.
 - The number and approximate size of entries are visible. Details: [docs/vault-format.md](docs/vault-format.md).
 - A forgotten password cannot be recovered.
+
+## Downloads
+
+Every push to `main` is built and tested on Linux, macOS and Windows by
+[GitHub Actions](https://github.com/Usub-Foundation/zipnote/actions/workflows/build.yml); each run keeps
+a Linux AppImage, a macOS `.dmg` (Apple Silicon) and a Windows `.zip` as artifacts. Tagged versions
+(`v*`) are published on the [Releases](https://github.com/Usub-Foundation/zipnote/releases) page.
+The packages are not notarized or signed with a developer certificate: on macOS open the app with
+right-click ▸ Open the first time (or remove the quarantine attribute, see below), on Windows confirm
+the SmartScreen prompt.
 
 ## Building
 

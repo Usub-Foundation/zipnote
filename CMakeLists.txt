@@ -132,6 +132,6 @@ if(ZN_BUILD_TESTS)
         add_test(NAME ${t} COMMAND test_${t})
         # freed memory is scribbled over (glibc), so a use-after-free crashes here as it does on macOS
         set_tests_properties(${t} PROPERTIES ENVIRONMENT
-            "QT_QPA_PLATFORM=offscreen;MALLOC_PERTURB_=165;GLIBC_TUNABLES=glibc.malloc.tcache_count=0")
+            "QT_QPA_PLATFORM=offscreen;ZN_DISABLE_WEBENGINE=1;MALLOC_PERTURB_=165;GLIBC_TUNABLES=glibc.malloc.tcache_count=0")
     endforeach()
 endif()

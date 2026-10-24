@@ -54,6 +54,12 @@ bool DiagramService::available(DiagramKind kind, QString* why) const {
     switch (kind) {
     case DiagramKind::Mermaid:
 #ifdef ZN_WITH_WEBENGINE
+        // tests set this so headless CI machines never start Chromium
+        if (qEnvironmentVariableIsSet("ZN_DISABLE_WEBENGINE")) {
+            if (why)
+                *why = tr("Rendering is disabled (ZN_DISABLE_WEBENGINE).");
+            return false;
+        }
         return true;
 #else
         if (why)

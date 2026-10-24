@@ -1,0 +1,9 @@
+[Desktop Entry]
+Type=Application
+Name=ZipNotes
+Comment=Encrypted notes in a single zip file
+Exec=ZipNotes %f
+Icon=zipnotes
+Terminal=false
+Categories=Office;Utility;
+MimeType=application/zip;
