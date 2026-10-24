@@ -918,15 +918,15 @@ void NoteEditor::paintEvent(QPaintEvent* e) {
 // ------------------------------------------------------------------------------------------------ clipboard
 
 QMimeData* NoteEditor::createMimeDataFromSelection() const {
-    QMimeData* data = QTextEdit::createMimeDataFromSelection();
+    QMimeData* mime = QTextEdit::createMimeDataFromSelection();
     if (!doc_)
-        return data;
+        return mime;
     NoteDocument tmp;
     QTextCursor(&tmp).insertFragment(textCursor().selection());
     for (const QString& id : doc_->diagramIds())
         tmp.setDiagram(id, *doc_->diagram(id));
-    data->setData(kMarkdownMime, exportMarkdown(tmp).toUtf8());
-    return data;
+    mime->setData(kMarkdownMime, exportMarkdown(tmp).toUtf8());
+    return mime;
 }
 
 bool NoteEditor::canInsertFromMimeData(const QMimeData* source) const {

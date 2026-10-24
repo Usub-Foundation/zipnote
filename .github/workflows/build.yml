@@ -30,11 +30,12 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      # libzip's CMake config refers to its command-line tools, which Ubuntu ships as separate packages
       - name: System packages
         run: |
           sudo apt-get update
           sudo apt-get install -y --no-install-recommends \
-            ninja-build file libsodium-dev libzip-dev \
+            ninja-build file libsodium-dev libzip-dev zipcmp zipmerge ziptool \
             libgl1-mesa-dev libegl1 libxkbcommon0 libxkbcommon-x11-0 libxcb-cursor0 libfontconfig1 libdbus-1-3 \
             libnss3 libnspr4 libxcomposite1 libxdamage1 libxrandr2 libxtst6 libxshmfence1 libgbm1 libxkbfile1 \
             libasound2t64

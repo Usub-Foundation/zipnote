@@ -874,8 +874,8 @@ QVariant MainWindow::loadResource(const QUrl& url, const NoteDocument* doc) {
         p.drawText(QRectF(0, 0, 460, 120), Qt::AlignCenter, tr("Empty drawing — double-click to draw"));
         return empty;
     }
-    if (auto data = vc_->readFile(fileId)) {
-        QImage img = QImage::fromData(*data);
+    if (auto bytes = vc_->readFile(fileId)) {
+        QImage img = QImage::fromData(*bytes);
         if (!img.isNull() && img.width() > 1600)
             img.setDevicePixelRatio(2);
         return img;

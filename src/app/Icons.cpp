@@ -68,7 +68,7 @@ public:
     void paint(QPainter* p, const QRect& rect, QIcon::Mode mode, QIcon::State) override {
         QColor c = color_.isValid() ? color_ : Theme::palette().secondaryText;
         if (mode == QIcon::Disabled)
-            c.setAlphaF(0.35);
+            c.setAlphaF(0.35f);
         else if (mode == QIcon::Active || mode == QIcon::Selected)
             c = c.darker(115);
         QSvgRenderer r(svgFor(name_, c));

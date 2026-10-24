@@ -175,14 +175,14 @@ NoteDigest digestMarkdown(const QString& markdown) {
             text = line;
             static const QRegularExpression quote(QStringLiteral(R"(^\s*(?:>\s?)+)"));
             text.remove(quote);
-            if (auto m = listRe().matchView(text); m.hasMatch()) {
-                if (m.capturedLength(1) > 0) {
-                    if (m.captured(1) == u" ")
+            if (auto lm = listRe().matchView(text); lm.hasMatch()) {
+                if (lm.capturedLength(1) > 0) {
+                    if (lm.captured(1) == u" ")
                         ++d.checklistOpen;
                     else
                         ++d.checklistDone;
                 }
-                text = text.mid(m.capturedEnd(0));
+                text = text.mid(lm.capturedEnd(0));
             }
         }
 
