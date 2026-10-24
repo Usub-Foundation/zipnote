@@ -22,6 +22,75 @@ if ((${#missing[@]})); then
   brew install "${missing[@]}"
 fi
 
+# Helpers for the self-contained bundle. No `cmd | grep -q` here: grep exiting early kills cmd with SIGPIPE,
+# which pipefail turns into a failure.
+rpaths() { otool -l "$1" | awk '$1 == "cmd" && $2 == "LC_RPATH" { getline; getline; print $2 }'; }
+
+# install_name_tool warns on every call that the change invalidates the signature (the bundle is re-signed
+# afterwards); show its output only when it fails
+rewrite() {
+  local out
+  out=$(install_name_tool "$@" 2>&1) || { echo "$out" >&2; return 1; }
+}
+
+add_rpath() {  # add_rpath <binary> <path>, unless the binary already has it
+  local existing
+  existing=$(rpaths "$1")
+  grep -qxF -- "$2" <<<"$existing" || rewrite -add_rpath "$2" "$1"
+}
+
+macho_files() {  # every Mach-O file inside a bundle, NUL-separated
+  local f
+  find "$1/Contents" -type f -print0 | while IFS= read -r -d '' f; do
+    if [[ $(file -b "$f") == *Mach-O* ]]; then printf '%s\0' "$f"; fi
+  done
+}
+
+deps() {  # libraries a Mach-O file loads, without its own install name
+  local id
+  id=$(otool -D "$1" | awk 'NR == 2')
+  otool -L "$1" | awk -v id="$id" 'NR > 1 && $1 != id { print $1 }'
+}
+
+# Homebrew's Qt has absolute install names, which macdeployqt turns into @executable_path/../Frameworks/...
+# That suits ZipNotes itself, but Qt WebEngine's helper process lives inside QtWebEngineCore.framework, where
+# that path leads nowhere: the helper could not load its frameworks, so Mermaid and Excalidraw never started.
+# Refer to bundled libraries through @rpath instead, give both executables an rpath to Contents/Frameworks
+# and drop rpaths that point back into Homebrew.
+fix_bundle_paths() {
+  local app=$1 f dep rp helper
+  while IFS= read -r -d '' f; do
+    for dep in $(deps "$f" | grep '^@executable_path/../Frameworks/' || true); do
+      rewrite -change "$dep" "@rpath/${dep#@executable_path/../Frameworks/}" "$f"
+    done
+    for rp in $(rpaths "$f" | grep -E '^/(opt|usr/local)/' || true); do
+      rewrite -delete_rpath "$rp" "$f"
+    done
+  done < <(macho_files "$app")
+  add_rpath "$app/Contents/MacOS/ZipNotes" "@executable_path/../Frameworks"
+  helper=$(find "$app/Contents/Frameworks" -path '*/Helpers/QtWebEngineProcess.app/Contents/MacOS/QtWebEngineProcess' -type f -print -quit)
+  if [[ -n "$helper" ]]; then
+    # Frameworks is 5 levels up through the framework's Helpers symlink, 7 through Versions/A/Helpers
+    add_rpath "$helper" "@executable_path/../../../../.."
+    add_rpath "$helper" "@executable_path/../../../../../../.."
+  fi
+}
+
+# Fails if a binary in the bundle still loads anything from Homebrew: on a Mac with Homebrew such a bundle
+# would work by accident, and break everywhere else.
+check_bundle() {
+  local app=$1 f found bad=0
+  while IFS= read -r -d '' f; do
+    found=$({ deps "$f"; rpaths "$f"; } | grep -E '^/(opt|usr/local)/' || true)
+    if [[ -n "$found" ]]; then
+      echo "  ${f#"$app"/} refers to:"
+      echo "$found" | sed 's/^/    /'
+      bad=1
+    fi
+  done < <(macho_files "$app")
+  ((bad == 0)) || { echo "The bundle still refers to Homebrew"; return 1; }
+}
+
 qt_prefix=$(brew --prefix qt)
 jobs=$(sysctl -n hw.ncpu)
 
@@ -34,7 +103,9 @@ app=build-macos/ZipNotes.app
 if ((bundle)); then
   # copies Qt (with WebEngine), libsodium and libzip into the bundle so it runs on Macs without Homebrew
   "$qt_prefix/bin/macdeployqt" "$app" -always-overwrite
-  # macdeployqt rewrites the binaries; Apple Silicon only runs signed code, so sign ad hoc for local use
+  fix_bundle_paths "$app"
+  check_bundle "$app"
+  # the binaries were rewritten; Apple Silicon only runs signed code, so sign ad hoc for local use
   codesign --force --deep --sign - "$app"
   rm -f build-macos/ZipNotes.dmg
   hdiutil create -volname ZipNotes -srcfolder "$app" -ov -format UDZO build-macos/ZipNotes.dmg

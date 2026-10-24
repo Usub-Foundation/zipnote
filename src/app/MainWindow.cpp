@@ -1276,9 +1276,12 @@ void MainWindow::startAutomation(const QStringList& steps, const QString& screen
         QTimer::singleShot(delay, this, [this, step] {
             if (step.startsWith(QLatin1String("search:"))) {
                 search_->focusField();
+                // straight to the line edit: without a window manager (Xvfb) the window is never activated,
+                // so there is no focus widget to type into
+                auto* edit = search_->findChild<QLineEdit*>(QString(), Qt::FindDirectChildrenOnly);
                 for (QChar c : step.mid(7)) {
                     QKeyEvent press(QEvent::KeyPress, 0, Qt::NoModifier, QString(c));
-                    QApplication::sendEvent(QApplication::focusWidget(), &press);
+                    QApplication::sendEvent(edit, &press);
                 }
             } else if (step.startsWith(QLatin1String("token:"))) {
                 search_->addToken({SearchToken::Has, step.mid(6), step.mid(6), QStringLiteral("checklist")});
