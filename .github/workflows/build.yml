@@ -2,6 +2,8 @@
 #   Linux    ZipNotes-linux-x86_64.AppImage  (linuxdeploy + Qt plugin)
 #   macOS    ZipNotes-macos-arm64.dmg        (scripts/build-macos.sh --bundle, ad-hoc signed)
 #   Windows  ZipNotes-windows-x64.zip        (windeployqt + vcpkg DLLs)
+# Each package is then started once: it creates a demo vault, opens a note with a Mermaid diagram and saves
+# a screenshot (smoke-<platform> artifact), so a package that builds but cannot start fails the run.
 # Every run uploads them as workflow artifacts; a v* tag also publishes them as a GitHub release.
 name: build
 
@@ -35,7 +37,7 @@ jobs:
         run: |
           sudo apt-get update
           sudo apt-get install -y --no-install-recommends \
-            ninja-build file libsodium-dev libzip-dev zipcmp zipmerge ziptool \
+            ninja-build file xvfb libsodium-dev libzip-dev zipcmp zipmerge ziptool \
             libgl1-mesa-dev libegl1 libxkbcommon0 libxkbcommon-x11-0 libxcb-cursor0 libfontconfig1 libdbus-1-3 \
             libnss3 libnspr4 libxcomposite1 libxdamage1 libxrandr2 libxtst6 libxshmfence1 libgbm1 libxkbfile1 \
             libasound2t64
@@ -70,6 +72,23 @@ jobs:
             --desktop-file packaging/linux/zipnotes.desktop --icon-file resources/icons/zipnotes.svg
           mv ZipNotes*.AppImage ZipNotes-linux-x86_64.AppImage
 
+      # runs as the unprivileged runner user with the Chromium sandbox on, like on a user's machine
+      - name: Smoke test
+        env:
+          ZN_PW: ci-smoke-password
+          APPIMAGE_EXTRACT_AND_RUN: 1
+        run: |
+          timeout 180 xvfb-run -a -s "-screen 0 1600x1000x24" ./ZipNotes-linux-x86_64.AppImage "$RUNNER_TEMP/smoke.zip" \
+            --password-env ZN_PW --create-demo --size 1320x840 --steps "search:hub;wait:8000" --screenshot "$PWD/smoke-linux.png"
+          test -s smoke-linux.png
+
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: smoke-linux
+          path: smoke-linux.png
+          if-no-files-found: ignore
+
       - uses: actions/upload-artifact@v4
         with:
           name: ZipNotes-linux-x86_64
@@ -91,6 +110,22 @@ jobs:
 
       - name: Rename
         run: mv build-macos/ZipNotes.dmg ZipNotes-macos-arm64.dmg
+
+      # the bundle after macdeployqt, i.e. what the .dmg contains; macOS has no timeout(1), perl's alarm does it
+      - name: Smoke test
+        env:
+          ZN_PW: ci-smoke-password
+        run: |
+          perl -e 'alarm 180; exec @ARGV' build-macos/ZipNotes.app/Contents/MacOS/ZipNotes "$RUNNER_TEMP/smoke.zip" \
+            --password-env ZN_PW --create-demo --size 1320x840 --steps "search:hub;wait:8000" --screenshot "$PWD/smoke-macos.png"
+          test -s smoke-macos.png
+
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: smoke-macos
+          path: smoke-macos.png
+          if-no-files-found: ignore
 
       - uses: actions/upload-artifact@v4
         with:
@@ -138,6 +173,27 @@ jobs:
           Copy-Item README.md, LICENSE dist/
           Compress-Archive -Path dist/* -DestinationPath ZipNotes-windows-x64.zip
 
+      # ZipNotes.exe is a GUI program, so start it as a process and wait for it explicitly
+      - name: Smoke test
+        shell: pwsh
+        env:
+          ZN_PW: ci-smoke-password
+        run: |
+          $p = Start-Process -FilePath dist/bin/ZipNotes.exe -PassThru -ArgumentList @(
+            "$env:RUNNER_TEMP\smoke.zip", '--password-env', 'ZN_PW', '--create-demo', '--size', '1320x840',
+            '--steps', 'search:hub;wait:8000', '--screenshot', "$PWD\smoke-windows.png")
+          $null = $p.Handle  # keeps the handle so ExitCode is available after the wait
+          if (-not $p.WaitForExit(180000)) { $p.Kill(); throw 'ZipNotes did not exit within 3 minutes' }
+          if ($p.ExitCode -ne 0) { throw "ZipNotes exited with code $($p.ExitCode)" }
+          if (-not (Test-Path smoke-windows.png)) { throw 'ZipNotes saved no screenshot' }
+
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: smoke-windows
+          path: smoke-windows.png
+          if-no-files-found: ignore
+
       - uses: actions/upload-artifact@v4
         with:
           name: ZipNotes-windows-x64
@@ -154,6 +210,7 @@ jobs:
     steps:
       - uses: actions/download-artifact@v4
         with:
+          pattern: ZipNotes-*
           path: dist
           merge-multiple: true
 
