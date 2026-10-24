@@ -3,5 +3,6 @@
     <file>icons/zipnotes.svg</file>
     <file>demo/whiteboard.excalidraw</file>
     <file>demo/whiteboard.png</file>
+    <file>demo/whiteboard-dark.png</file>
 </qresource>
 </RCC>

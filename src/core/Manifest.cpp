@@ -64,6 +64,8 @@ QByteArray Manifest::toJson() const {
             o["text"] = f.searchText;
         if (!f.previewId.isEmpty())
             o["preview"] = f.previewId;
+        if (!f.darkPreviewId.isEmpty())
+            o["preview_dark"] = f.darkPreviewId;
         jfiles.append(o);
     }
     QJsonObject hashes;
@@ -107,7 +109,7 @@ std::expected<Manifest, QString> Manifest::fromJson(const QByteArray& json) {
     for (const auto& v : root["files"].toArray()) {
         const auto o = v.toObject();
         m.files.append({o["id"].toString(), o["note"].toString(), o["kind"].toString(), o["mime"].toString(),
-                        o["text"].toString(), o["preview"].toString()});
+                        o["text"].toString(), o["preview"].toString(), o["preview_dark"].toString()});
     }
     const auto hashes = root["entries"].toObject();
     for (auto it = hashes.begin(); it != hashes.end(); ++it)

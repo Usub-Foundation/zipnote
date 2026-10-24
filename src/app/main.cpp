@@ -95,6 +95,9 @@ int main(int argc, char** argv) {
             QFile f(out);
             if (f.open(QIODevice::WriteOnly))
                 f.write(dlg->previewPng());
+            QFile dark(out + QStringLiteral(".dark.png"));
+            if (dark.open(QIODevice::WriteOnly))
+                dark.write(dlg->darkPreviewPng());
             qInfo().noquote() << "excalidraw scene bytes:" << dlg->sceneJson().size() << "text:" << dlg->searchText()
                               << "preview bytes:" << dlg->previewPng().size();
             dlg->deleteLater();

@@ -537,18 +537,19 @@ void VaultController::updateFile(const QString& id, const QByteArray& data, cons
     scheduleSave();
 }
 
-void VaultController::setFilePreview(const QString& id, const QByteArray& png) {
+void VaultController::setFilePreview(const QString& id, const QByteArray& png, bool dark) {
     FileMeta* f = vault_ ? vault_->manifest().file(id) : nullptr;
     if (!f)
         return;
-    if (f->previewId.isEmpty() || !vault_->manifest().file(f->previewId)) {
+    const QString current = dark ? f->darkPreviewId : f->previewId;
+    if (current.isEmpty() || !vault_->manifest().file(current)) {
         const QString noteId = f->noteId;
         const QString previewId = addFile(noteId, QStringLiteral("preview"), QStringLiteral("image/png"), png);
         if ((f = vault_->manifest().file(id)))  // addFile may have reallocated the list
-            f->previewId = previewId;
+            (dark ? f->darkPreviewId : f->previewId) = previewId;
     } else {
-        vault_->write(Vault::fileEntry(f->previewId), png);
-        fileCache_.insert(f->previewId, png);
+        vault_->write(Vault::fileEntry(current), png);
+        fileCache_.insert(current, png);
     }
     scheduleSave();
 }
@@ -612,8 +613,12 @@ void VaultController::collectRenderGarbage() {
         }
         for (const auto& fileId : r.digest.fileRefs) {
             keep.insert(fileId);
-            if (const FileMeta* f = vault_->manifest().file(fileId); f && !f->previewId.isEmpty())
-                keep.insert(f->previewId);
+            if (const FileMeta* f = vault_->manifest().file(fileId)) {
+                if (!f->previewId.isEmpty())
+                    keep.insert(f->previewId);
+                if (!f->darkPreviewId.isEmpty())
+                    keep.insert(f->darkPreviewId);
+            }
         }
     }
     auto& files = vault_->manifest().files;

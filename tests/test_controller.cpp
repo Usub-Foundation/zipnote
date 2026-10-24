@@ -120,6 +120,26 @@ private slots:
         QVERIFY(vc.saveNow());
     }
 
+    void lightAndDarkPreviewsSurvive() {
+        QString fileId;
+        {
+            VaultController vc;
+            open(vc, "correct horse battery");
+            fileId = vc.addFile(noteId, "excalidraw", "application/json", "{\"elements\":[]}", "Shapes");
+            vc.setFilePreview(fileId, "light png");
+            vc.setFilePreview(fileId, "dark png", true);
+            vc.setFilePreview(fileId, "dark png v2", true);  // re-saving replaces, does not add
+            vc.updateNoteContent(noteId, vc.record(noteId)->markdown + QStringLiteral("\n![Drawing](zn-file://%1)\n").arg(fileId));
+            vc.lock();  // garbage collection runs here
+        }
+        VaultController vc;
+        open(vc, "correct horse battery");
+        const FileMeta* f = vc.fileMeta(fileId);
+        QVERIFY(f && !f->previewId.isEmpty() && !f->darkPreviewId.isEmpty());
+        QCOMPARE(*vc.readFile(f->previewId), QByteArray("light png"));
+        QCOMPARE(*vc.readFile(f->darkPreviewId), QByteArray("dark png v2"));
+    }
+
     void unreferencedFilesAreCollected() {
         QString orphan;
         {

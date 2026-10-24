@@ -34,7 +34,8 @@ struct FileMeta {
     QString kind;        // "excalidraw", "image"
     QString mime;
     QString searchText;  // text extracted for the search index (Excalidraw labels), kept encrypted in the manifest
-    QString previewId;   // id of the FileMeta holding a rendered PNG, if any
+    QString previewId;      // id of the FileMeta holding a rendered PNG, if any
+    QString darkPreviewId;  // the same rendered for the dark theme (Excalidraw drawings)
 };
 
 // Everything that is not note content. Stored encrypted as a single entry; it also authenticates every other

@@ -857,6 +857,10 @@ QVariant MainWindow::loadResource(const QUrl& url, const NoteDocument* doc) {
     if (!meta)
         return {};
     if (meta->kind == u"excalidraw") {
+        if (Theme::isDark() && !meta->darkPreviewId.isEmpty())
+            if (auto png = vc_->readFile(meta->darkPreviewId))
+                return pngImage(*png);
+        // light preview; drawings saved before dark previews existed get an approximated dark version
         if (!meta->previewId.isEmpty())
             if (auto png = vc_->readFile(meta->previewId))
                 return Theme::isDark() ? darkDrawing(pngImage(*png)) : pngImage(*png);
@@ -1146,6 +1150,8 @@ void MainWindow::insertDrawing() {
                                     dlg.sceneJson(), dlg.searchText());
     if (!dlg.previewPng().isEmpty())
         vc_->setFilePreview(id, dlg.previewPng());
+    if (!dlg.darkPreviewPng().isEmpty())
+        vc_->setFilePreview(id, dlg.darkPreviewPng(), true);
     editor_->insertFile(id, tr("Drawing"));
     flushEditor();
 #else
@@ -1166,6 +1172,8 @@ void MainWindow::editDrawing(const QString& fileId) {
     vc_->updateFile(fileId, dlg.sceneJson(), dlg.searchText());
     if (!dlg.previewPng().isEmpty())
         vc_->setFilePreview(fileId, dlg.previewPng());
+    if (!dlg.darkPreviewPng().isEmpty())
+        vc_->setFilePreview(fileId, dlg.darkPreviewPng(), true);
     if (doc_)
         doc_->refreshResource(NoteDocument::fileUrl(fileId));
 #else

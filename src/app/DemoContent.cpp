@@ -169,14 +169,19 @@ void populate(Vault& vault) {
         QByteArray markdown(s.markdown);
         QFile scene(QStringLiteral(":/demo/whiteboard.excalidraw"));
         QFile preview(QStringLiteral(":/demo/whiteboard.png"));
-        if (s.drawing && scene.open(QIODevice::ReadOnly) && preview.open(QIODevice::ReadOnly)) {
+        QFile darkPreview(QStringLiteral(":/demo/whiteboard-dark.png"));
+        if (s.drawing && scene.open(QIODevice::ReadOnly) && preview.open(QIODevice::ReadOnly) &&
+            darkPreview.open(QIODevice::ReadOnly)) {
             // resources exist only in the app binary, so tests get the notes without the drawing
-            FileMeta png{newId(), n.id, QStringLiteral("preview"), QStringLiteral("image/png"), {}, {}};
+            FileMeta png{newId(), n.id, QStringLiteral("preview"), QStringLiteral("image/png"), {}, {}, {}};
+            FileMeta darkPng{newId(), n.id, QStringLiteral("preview"), QStringLiteral("image/png"), {}, {}, {}};
             FileMeta drawing{newId(), n.id, QStringLiteral("excalidraw"), QStringLiteral("application/vnd.excalidraw+json"),
-                             QStringLiteral("Editor\nSearch index\nin memory only\nVault (.zip)\nXChaCha20 +\nArgon2id"), png.id};
+                             QStringLiteral("Editor\nSearch index\nin memory only\nVault (.zip)\nXChaCha20 +\nArgon2id"), png.id, darkPng.id};
             m.files.append(png);
+            m.files.append(darkPng);
             m.files.append(drawing);
             vault.write(Vault::fileEntry(png.id), preview.readAll());
+            vault.write(Vault::fileEntry(darkPng.id), darkPreview.readAll());
             vault.write(Vault::fileEntry(drawing.id), scene.readAll());
             markdown += "\n## Whiteboard\n\n![Drawing](zn-file://" + drawing.id.toUtf8() + ")\n";
         }

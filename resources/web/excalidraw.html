@@ -30,6 +30,7 @@ function start(sceneJson, dark) {
         elements: d.elements || [],
         appState: Object.assign({}, d.appState || {}, { collaborators: new Map() }),
         files: d.files || {},
+        scrollToContent: true,  // open with the whole drawing in view, not wherever it was scrolled
       };
     } catch (e) {
       document.getElementById("app").innerHTML = '<div class="error">The drawing is damaged: ' + String(e) + "</div>";
@@ -63,23 +64,26 @@ async function znSave() {
     const appState = api.getAppState();
     const files = api.getFiles();
     const json = serializeAsJSON(elements, appState, files, "local");
-    let png = "";
-    if (elements.length > 0) {
-      const blob = await exportToBlob({
-        elements,
-        files,
-        mimeType: "image/png",
-        exportPadding: 16,
-        appState: Object.assign({}, appState, { exportBackground: false, exportWithDarkMode: false }),
-        getDimensions: (w, h) => ({ width: w * 2, height: h * 2, scale: 2 }),
-      });
-      png = await blobToDataUrl(blob);
+    // two transparent previews: the note shows the one matching the app theme; the dark one is
+    // Excalidraw's own dark rendering, so colours and embedded images look as they do in the editor
+    const render = async (dark) => blobToDataUrl(await exportToBlob({
+      elements,
+      files,
+      mimeType: "image/png",
+      exportPadding: 16,
+      appState: Object.assign({}, appState, { exportBackground: false, exportWithDarkMode: dark }),
+      getDimensions: (w, h) => ({ width: w * 2, height: h * 2, scale: 2 }),
+    }));
+    let png = "", darkPng = "";
+    if (elements.some((e) => !e.isDeleted)) {
+      png = await render(false);
+      darkPng = await render(true);
     }
     const text = elements
       .filter((e) => !e.isDeleted && (e.type === "text" || typeof e.text === "string"))
       .map((e) => e.text || e.originalText || "")
       .join("\n");
-    zn.saved(json, png, text);
+    zn.saved(json, png, darkPng, text);
   } catch (e) {
     zn.failed(String((e && e.message) || e));
   }

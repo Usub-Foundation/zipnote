@@ -48,13 +48,18 @@ ExcalidrawDialog::ExcalidrawDialog(const QByteArray& sceneJson, QWidget* parent)
 
     connect(cancel, &QPushButton::clicked, this, &QDialog::reject);
     connect(done, &QPushButton::clicked, this, &ExcalidrawDialog::save);
-    connect(bridge_, &ExcalidrawBridge::savedScene, this, [this](const QString& json, const QString& dataUrl, const QString& text) {
-        scene_ = json.toUtf8();
-        const int comma = static_cast<int>(dataUrl.indexOf(u','));
-        png_ = comma > 0 ? QByteArray::fromBase64(dataUrl.mid(comma + 1).toLatin1()) : QByteArray();
-        text_ = text;
-        accept();
-    });
+    connect(bridge_, &ExcalidrawBridge::savedScene, this,
+            [this](const QString& json, const QString& dataUrl, const QString& darkDataUrl, const QString& text) {
+                auto decode = [](const QString& url) {
+                    const int comma = static_cast<int>(url.indexOf(u','));
+                    return comma > 0 ? QByteArray::fromBase64(url.mid(comma + 1).toLatin1()) : QByteArray();
+                };
+                scene_ = json.toUtf8();
+                png_ = decode(dataUrl);
+                darkPng_ = decode(darkDataUrl);
+                text_ = text;
+                accept();
+            });
     connect(bridge_, &ExcalidrawBridge::saveFailed, this, [this](const QString& error) {
         QMessageBox::warning(this, tr("Drawing"), tr("The drawing could not be saved: %1").arg(error));
     });

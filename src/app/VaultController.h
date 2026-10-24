@@ -72,7 +72,7 @@ public:
     QString addFile(const QString& noteId, const QString& kind, const QString& mime, const QByteArray& data,
                     const QString& searchText = {});
     void updateFile(const QString& id, const QByteArray& data, const QString& searchText);
-    void setFilePreview(const QString& id, const QByteArray& png);
+    void setFilePreview(const QString& id, const QByteArray& png, bool dark = false);
     std::optional<QByteArray> readFile(const QString& id);
     const FileMeta* fileMeta(const QString& id) const;
     std::optional<QByteArray> cachedRender(const QString& key);

@@ -14,12 +14,13 @@ public:
     using QObject::QObject;
     QString scene;
     bool dark = false;
-    Q_INVOKABLE void saved(const QString& sceneJson, const QString& pngDataUrl, const QString& text) {
-        emit savedScene(sceneJson, pngDataUrl, text);
+    Q_INVOKABLE void saved(const QString& sceneJson, const QString& pngDataUrl, const QString& darkPngDataUrl,
+                           const QString& text) {
+        emit savedScene(sceneJson, pngDataUrl, darkPngDataUrl, text);
     }
     Q_INVOKABLE void failed(const QString& error) { emit saveFailed(error); }
 signals:
-    void savedScene(const QString& sceneJson, const QString& pngDataUrl, const QString& text);
+    void savedScene(const QString& sceneJson, const QString& pngDataUrl, const QString& darkPngDataUrl, const QString& text);
     void saveFailed(const QString& error);
 };
 
@@ -32,6 +33,7 @@ public:
 
     QByteArray sceneJson() const { return scene_; }
     QByteArray previewPng() const { return png_; }
+    QByteArray darkPreviewPng() const { return darkPng_; }  // rendered by Excalidraw's dark mode
     QString searchText() const { return text_; }
 
 public slots:
@@ -42,6 +44,7 @@ private:
     ExcalidrawBridge* bridge_;
     QByteArray scene_;
     QByteArray png_;
+    QByteArray darkPng_;
     QString text_;
 };
 
