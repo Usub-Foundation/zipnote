@@ -46,7 +46,8 @@ jobs:
           host: linux
           target: desktop
           arch: linux_gcc_64
-          modules: ${{ env.QT_MODULES }}
+          # the AppImage bundles every positioning plugin, and the NMEA one links Qt Serial Port
+          modules: ${{ env.QT_MODULES }} qtserialport
           cache: true
 
       - name: Configure
