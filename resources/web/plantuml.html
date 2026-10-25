@@ -1,0 +1,45 @@
+<!doctype html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src qrc: 'unsafe-inline' 'unsafe-eval'; style-src 'unsafe-inline'; img-src data: blob:; font-src qrc: data:">
+<script src="qrc:///qtwebchannel/qwebchannel.js"></script>
+<script src="qrc:/web/svg-to-png.js"></script>
+<!-- themes.js, emoji.js and openiconic.js are loaded from here when a diagram first needs them -->
+<script>window.PLANTUML_STDLIB_BASE = "qrc:/web/plantuml/";</script>
+<script src="qrc:/web/plantuml/viz-global.js"></script>
+<style>html, body { margin: 0; background: transparent; }</style>
+</head>
+<body>
+<script type="module">
+import { renderToString } from "qrc:/web/plantuml/plantuml.js";
+
+let zn = null;
+
+// PlantUML paints its default page colour (white, #1B1B1B in dark mode) under the diagram; without it the note
+// shows through, as under Mermaid diagrams. A background the diagram sets itself stays.
+function withoutDefaultBackground(svg) {
+  const doc = new DOMParser().parseFromString(svg, "image/svg+xml");
+  const bg = doc.documentElement.querySelector(":scope > rect");
+  if (bg && bg.getAttribute("x") === "0" && bg.getAttribute("y") === "0" && /^#(ffffff|1b1b1b)$/i.test(bg.getAttribute("fill") || ""))
+    bg.remove();
+  return new XMLSerializer().serializeToString(doc);
+}
+
+// PlantUML queues overlapping calls itself and answers each of them exactly once.
+window.znRender = (id, source, dark) => {
+  const fail = (e) => zn.done(id, false, "", String((e && e.message) || e));
+  renderToString(
+    source.split(/\r\n|\r|\n/),
+    (svg) => svgToPng(withoutDefaultBackground(svg), 2).then((png) => zn.done(id, true, png, ""), fail),
+    fail,
+    { dark });
+};
+
+new QWebChannel(qt.webChannelTransport, (channel) => {
+  zn = channel.objects.zn;
+  zn.ready();
+});
+</script>
+</body>
+</html>

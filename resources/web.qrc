@@ -2,14 +2,14 @@
 <qresource prefix="/web">
     <file alias="mermaid.html">web/mermaid.html</file>
     <file alias="excalidraw.html">web/excalidraw.html</file>
-    <file alias="excalidraw/excalidraw.production.min.js">../third_party/web/excalidraw/excalidraw.production.min.js</file>
+    <file alias="plantuml.html">web/plantuml.html</file>
+    <file alias="svg-to-png.js">web/svg-to-png.js</file>
     <file alias="excalidraw/excalidraw-assets/Assistant-Bold.woff2">../third_party/web/excalidraw/excalidraw-assets/Assistant-Bold.woff2</file>
     <file alias="excalidraw/excalidraw-assets/Assistant-Medium.woff2">../third_party/web/excalidraw/excalidraw-assets/Assistant-Medium.woff2</file>
     <file alias="excalidraw/excalidraw-assets/Assistant-Regular.woff2">../third_party/web/excalidraw/excalidraw-assets/Assistant-Regular.woff2</file>
     <file alias="excalidraw/excalidraw-assets/Assistant-SemiBold.woff2">../third_party/web/excalidraw/excalidraw-assets/Assistant-SemiBold.woff2</file>
     <file alias="excalidraw/excalidraw-assets/Cascadia.woff2">../third_party/web/excalidraw/excalidraw-assets/Cascadia.woff2</file>
     <file alias="excalidraw/excalidraw-assets/Virgil.woff2">../third_party/web/excalidraw/excalidraw-assets/Virgil.woff2</file>
-    <file alias="excalidraw/excalidraw-assets/vendor-677e88ca78c86bddf13d.js">../third_party/web/excalidraw/excalidraw-assets/vendor-677e88ca78c86bddf13d.js</file>
     <file alias="excalidraw/excalidraw-assets/locales/ar-SA-json-db7c644ccbeb85d54a47.js">../third_party/web/excalidraw/excalidraw-assets/locales/ar-SA-json-db7c644ccbeb85d54a47.js</file>
     <file alias="excalidraw/excalidraw-assets/locales/az-AZ-json-08a6de50238dbb21926c.js">../third_party/web/excalidraw/excalidraw-assets/locales/az-AZ-json-08a6de50238dbb21926c.js</file>
     <file alias="excalidraw/excalidraw-assets/locales/bg-BG-json-42fb0378311f3ade2627.js">../third_party/web/excalidraw/excalidraw-assets/locales/bg-BG-json-42fb0378311f3ade2627.js</file>
@@ -63,7 +63,14 @@
     <file alias="excalidraw/excalidraw-assets/locales/zh-CN-json-069c304b5011429be615.js">../third_party/web/excalidraw/excalidraw-assets/locales/zh-CN-json-069c304b5011429be615.js</file>
     <file alias="excalidraw/excalidraw-assets/locales/zh-HK-json-d9bf1e4e2d1f8650c680.js">../third_party/web/excalidraw/excalidraw-assets/locales/zh-HK-json-d9bf1e4e2d1f8650c680.js</file>
     <file alias="excalidraw/excalidraw-assets/locales/zh-TW-json-5a3fa7cacfa83c411d89.js">../third_party/web/excalidraw/excalidraw-assets/locales/zh-TW-json-5a3fa7cacfa83c411d89.js</file>
+    <file alias="excalidraw/excalidraw-assets/vendor-677e88ca78c86bddf13d.js">../third_party/web/excalidraw/excalidraw-assets/vendor-677e88ca78c86bddf13d.js</file>
+    <file alias="excalidraw/excalidraw.production.min.js">../third_party/web/excalidraw/excalidraw.production.min.js</file>
     <file alias="mermaid/mermaid.min.js">../third_party/web/mermaid/mermaid.min.js</file>
+    <file alias="plantuml/emoji.js">../third_party/web/plantuml/emoji.js</file>
+    <file alias="plantuml/openiconic.js">../third_party/web/plantuml/openiconic.js</file>
+    <file alias="plantuml/plantuml.js">../third_party/web/plantuml/plantuml.js</file>
+    <file alias="plantuml/themes.js">../third_party/web/plantuml/themes.js</file>
+    <file alias="plantuml/viz-global.js">../third_party/web/plantuml/viz-global.js</file>
     <file alias="react/react-dom.production.min.js">../third_party/web/react/react-dom.production.min.js</file>
     <file alias="react/react.production.min.js">../third_party/web/react/react.production.min.js</file>
 </qresource>

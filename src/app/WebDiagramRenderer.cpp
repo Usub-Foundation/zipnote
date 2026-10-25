@@ -54,21 +54,22 @@ QWebEngineProfile* sandboxedWebProfile() {
     return profile;
 }
 
-WebDiagramRenderer::WebDiagramRenderer(QObject* parent) : QObject(parent) {}
+WebDiagramRenderer::WebDiagramRenderer(const QUrl& page, const QString& name, QObject* parent)
+    : QObject(parent), url_(page), name_(name) {}
 
 void WebDiagramRenderer::ensurePage() {
     if (page_)
         return;
     page_ = new QWebEnginePage(sandboxedWebProfile(), this);
-    bridge_ = new MermaidBridge(this);
+    bridge_ = new DiagramPageBridge(this);
     auto* channel = new QWebChannel(page_);
     channel->registerObject(QStringLiteral("zn"), bridge_);
     page_->setWebChannel(channel);
-    connect(bridge_, &MermaidBridge::pageReady, this, [this] {
+    connect(bridge_, &DiagramPageBridge::pageReady, this, [this] {
         ready_ = true;
         pump();
     });
-    connect(bridge_, &MermaidBridge::finished, this, [this](int id, bool ok, const QString& dataUrl, const QString& error) {
+    connect(bridge_, &DiagramPageBridge::finished, this, [this](int id, bool ok, const QString& dataUrl, const QString& error) {
         Done done = running_.take(id);
         if (!done)
             return;
@@ -79,7 +80,7 @@ void WebDiagramRenderer::ensurePage() {
         const int comma = static_cast<int>(dataUrl.indexOf(u','));
         done(QByteArray::fromBase64(dataUrl.mid(comma + 1).toLatin1()), {});
     });
-    page_->load(QUrl(QStringLiteral("qrc:/web/mermaid.html")));
+    page_->load(url_);
 }
 
 void WebDiagramRenderer::render(const QString& source, bool dark, Done done) {
@@ -89,7 +90,7 @@ void WebDiagramRenderer::render(const QString& source, bool dark, Done done) {
     queue_.enqueue({id, source, dark});
     QTimer::singleShot(kRenderTimeoutMs, this, [this, id] {
         if (Done d = running_.take(id))
-            d({}, tr("Mermaid rendering timed out"));
+            d({}, tr("%1 rendering timed out").arg(name_));
     });
     pump();
 }

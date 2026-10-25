@@ -94,7 +94,7 @@ if(ZN_BUILD_APP)
         list(APPEND ZN_APP_SOURCES resources/icons/zipnotes.icns)
     endif()
     if(ZN_WITH_WEBENGINE)
-        # ~11 MB of JavaScript and fonts: compiled straight into an object file instead of a C++ array
+        # ~18 MB of JavaScript and fonts: compiled straight into an object file instead of a C++ array
         qt_add_big_resources(ZN_WEB_RESOURCES resources/web.qrc)
         list(APPEND ZN_APP_SOURCES ${ZN_WEB_RESOURCES})
     endif()

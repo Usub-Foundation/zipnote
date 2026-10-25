@@ -41,13 +41,16 @@ C++23 · Qt 6 Widgets · libsodium · libzip. Builds on Linux, macOS and Windows
 
 **Diagrams**
 - **Mermaid** — ```` ```mermaid ```` blocks rendered inline (mermaid.js 12, offline).
-- **PlantUML** — ```` ```plantuml ```` blocks, rendered by a local `plantuml` or `java -jar plantuml.jar`
-  with the SANDBOX security profile. Nothing is sent to a server.
+- **PlantUML** — ```` ```plantuml ```` blocks, rendered by PlantUML's own engine compiled to JavaScript
+  (`@plantuml/core` 1.2026.9, with Graphviz as WebAssembly), so neither Java nor Graphviz is needed. A local
+  `plantuml` or `plantuml.jar` can be set instead in **File ▸ Settings**; it runs with the SANDBOX security
+  profile. Nothing is sent to a server. The standard library (`!include <C4/...>`, AWS, Azure...) is not
+  bundled; use a local PlantUML for it.
 - **Excalidraw** — the full editor (0.17.6, offline) in a window; the scene is stored as an encrypted
   attachment, the note shows a PNG preview, and the drawing’s text is searchable.
 - Double-click a diagram to edit it: source on the left, live preview on the right, templates included.
 - Rendered diagrams are cached inside the vault (encrypted), so reopening a note needs neither WebEngine
-  nor Java.
+  nor a local PlantUML.
 
 | | |
 |---|---|
@@ -64,8 +67,8 @@ C++23 · Qt 6 Widgets · libsodium · libzip. Builds on Linux, macOS and Windows
 - Entry names in the archive are UUIDs; note and folder names exist only in the encrypted manifest.
 - Locking: toolbar button, Ctrl+L, or automatically after N idle minutes (10 by default). The key lives in
   `sodium_malloc` memory and is wiped.
-- Mermaid and Excalidraw run in an off-the-record Qt WebEngine profile whose request interceptor only lets
-  `qrc:`, `data:` and `blob:` through — no network.
+- Mermaid, PlantUML and Excalidraw run in an off-the-record Qt WebEngine profile whose request interceptor
+  only lets `qrc:`, `data:` and `blob:` through — no network.
 - Saving is atomic: a temporary file, then `rename`.
 
 Limitations:
@@ -101,8 +104,8 @@ scripts/build-macos.sh --bundle        # self-contained .app (Qt inside) and bui
 ```
 
 The script installs `cmake ninja pkgconf qt libsodium libzip` from Homebrew. If CMake reports
-`Qt WebEngine not found`, the installed Qt has no WebEngine and the app is built without Mermaid and
-Excalidraw. PlantUML: `brew install plantuml`. Shortcuts use ⌘ instead of Ctrl on a Mac.
+`Qt WebEngine not found`, the installed Qt has no WebEngine and the app is built without Mermaid,
+Excalidraw and the built-in PlantUML (`brew install plantuml` then). Shortcuts use ⌘ instead of Ctrl on a Mac.
 If you copy the `.dmg` to another Mac, macOS may call the app “damaged” because the signature is ad hoc:
 `xattr -dr com.apple.quarantine /Applications/ZipNotes.app`.
 
@@ -121,11 +124,12 @@ ctest --test-dir build          # 8 test suites
 ```
 
 CMake options: `-DZN_WITH_WEBENGINE=OFF` builds without WebEngine (a much smaller binary; Mermaid blocks
-show a placeholder, Excalidraw is unavailable, PlantUML still works), `-DZN_BUILD_TESTS=OFF`,
+show a placeholder, Excalidraw is unavailable, PlantUML needs a local `plantuml`), `-DZN_BUILD_TESTS=OFF`,
 `-DZN_BUILD_APP=OFF`. For a self-contained package use `macdeployqt` / `windeployqt`; both pick up
 WebEngine as well.
 
-PlantUML is optional: install `plantuml`, or set the path to `plantuml.jar` in **File ▸ Settings**.
+PlantUML is built in. To use a local one instead (for the standard library, say), set `plantuml` or the
+path to `plantuml.jar` in **File ▸ Settings**.
 
 ## Running
 
@@ -178,8 +182,8 @@ src/app/
   VaultController            unlocking, autosave, trash, background search
   NoteListModel/View, SidebarView, SearchField   list, sidebar, search field with tokens
   DiagramService, WebDiagramRenderer, DiagramEditorDialog, ExcalidrawDialog
-resources/web/       host pages mermaid.html and excalidraw.html
-third_party/web/     mermaid 12.2.0, Excalidraw 0.17.6, React 18.3.1 (MIT)
+resources/web/       host pages mermaid.html, plantuml.html and excalidraw.html
+third_party/web/     mermaid 12.2.0, Excalidraw 0.17.6, React 18.3.1, @plantuml/core 1.2026.9 (MIT)
 ```
 
 Tests (`tests/`): crypto, the vault (swapped and tampered entries, tampered KDF parameters), search,
@@ -190,5 +194,7 @@ scribbling enabled, so use-after-free bugs crash instead of passing silently.
 
 ## License
 
-MIT, see [LICENSE](LICENSE). Bundled third-party code: mermaid, Excalidraw and React — MIT (license texts
-in `third_party/web/*/LICENSE`). Linked libraries: Qt (LGPLv3), libsodium (ISC), libzip (BSD-3-Clause).
+MIT, see [LICENSE](LICENSE). Bundled third-party code: mermaid, Excalidraw, React and PlantUML — MIT (license
+texts in `third_party/web/*/LICENSE`); Viz.js (MIT) with Graphviz (EPL-1.0) and Expat (MIT), see
+`third_party/web/plantuml/THIRD_PARTY.md`. Linked libraries: Qt (LGPLv3), libsodium (ISC), libzip
+(BSD-3-Clause).

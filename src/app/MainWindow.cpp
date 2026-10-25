@@ -701,9 +701,15 @@ void MainWindow::showSettings() {
     lockMinutes->setValue(s.value(QStringLiteral("security/autoLockMinutes"), kDefaultAutoLockMinutes).toInt());
     form->addRow(tr("Lock after inactivity:"), lockMinutes);
     auto* plantuml = new QLineEdit(s.value(QStringLiteral("plantuml/command")).toString(), &dlg);
-    plantuml->setPlaceholderText(diagrams_->plantUmlCommand().isEmpty() ? tr("plantuml, or /path/to/plantuml.jar") : diagrams_->plantUmlCommand());
+    QString placeholder = tr("plantuml, or /path/to/plantuml.jar");
+    if (diagrams_->builtInPlantUml())
+        placeholder = tr("Built-in; or plantuml, /path/to/plantuml.jar");
+    else if (!diagrams_->plantUmlCommand().isEmpty())
+        placeholder = diagrams_->plantUmlCommand();
+    plantuml->setPlaceholderText(placeholder);
     form->addRow(tr("PlantUML command:"), plantuml);
-    auto* note = new QLabel(tr("PlantUML runs locally with the SANDBOX security profile. No diagram is ever sent to a server."), &dlg);
+    auto* note = new QLabel(tr("Leave it empty to use the PlantUML engine built into ZipNotes. A command runs locally with the "
+                               "SANDBOX security profile. No diagram is ever sent to a server."), &dlg);
     note->setWordWrap(true);
     note->setStyleSheet(QStringLiteral("color: %1").arg(Theme::palette().tertiaryText.name()));
     form->addRow(note);

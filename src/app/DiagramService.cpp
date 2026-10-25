@@ -22,6 +22,22 @@ namespace {
 constexpr qreal kRenderScale = 2.0;  // diagrams are rendered at 2x and shown at half size
 constexpr int kPlantUmlTimeoutMs = 20000;
 
+QString configuredPlantUml() {
+    return QSettings().value(QStringLiteral("plantuml/command")).toString().trimmed();
+}
+
+// Adds missing @startuml/@enduml lines. A local PlantUML also renders at 2x like the other renderers; a dpi
+// set by the note itself comes later and wins.
+QString plantUmlText(const QString& source, bool hiDpi) {
+    QString text = source;
+    if (!text.contains(QLatin1String("@start")))
+        text = QStringLiteral("@startuml\n") + text + QStringLiteral("\n@enduml\n");
+    static const QRegularExpression startLine(QStringLiteral(R"((@start\w+[^\n]*\n))"));
+    if (hiDpi && !text.contains(QLatin1String("skinparam dpi"), Qt::CaseInsensitive))
+        text.replace(startLine, QStringLiteral("\\1skinparam dpi 192\n"));
+    return text;
+}
+
 QImage decodePng(const QByteArray& png) {
     QImage img = QImage::fromData(png, "PNG");
     if (!img.isNull())
@@ -33,41 +49,54 @@ QImage decodePng(const QByteArray& png) {
 
 DiagramService::DiagramService(VaultController& vc, QObject* parent) : QObject(parent), vc_(vc) {
 #ifdef ZN_WITH_WEBENGINE
-    web_ = new WebDiagramRenderer(this);
+    mermaid_ = new WebDiagramRenderer(QUrl(QStringLiteral("qrc:/web/mermaid.html")), QStringLiteral("Mermaid"), this);
+    plantUml_ = new WebDiagramRenderer(QUrl(QStringLiteral("qrc:/web/plantuml.html")), QStringLiteral("PlantUML"), this);
 #endif
 }
 
 DiagramService::~DiagramService() = default;
 
+// Mermaid and the built-in PlantUML follow the app theme; a local PlantUML always renders light
+bool DiagramService::renderDark(DiagramKind kind) const {
+    return Theme::isDark() && (kind == DiagramKind::Mermaid || (kind == DiagramKind::PlantUml && builtInPlantUml()));
+}
+
 QString DiagramService::key(DiagramKind kind, const QString& source) const {
-    // PlantUML is always rendered light (it has no reliable dark theme), Mermaid follows the app theme
-    const bool dark = kind == DiagramKind::Mermaid && Theme::isDark();
-    return VaultController::renderKey(kind, source, dark);
+    return VaultController::renderKey(kind, source, renderDark(kind));
 }
 
 void DiagramService::clearMemory() {
     memory_.clear();
     errors_.clear();
+    unavailable_.clear();
+}
+
+QStringList DiagramService::errors() const {
+    return errors_.values() + unavailable_.values();
+}
+
+bool DiagramService::webAvailable(QString* why) const {
+#ifdef ZN_WITH_WEBENGINE
+    // tests set this so headless CI machines never start Chromium
+    if (qEnvironmentVariableIsSet("ZN_DISABLE_WEBENGINE")) {
+        if (why)
+            *why = tr("Rendering is disabled (ZN_DISABLE_WEBENGINE).");
+        return false;
+    }
+    return true;
+#else
+    if (why)
+        *why = tr("This build has no Qt WebEngine, so Mermaid diagrams cannot be rendered.");
+    return false;
+#endif
 }
 
 bool DiagramService::available(DiagramKind kind, QString* why) const {
     switch (kind) {
     case DiagramKind::Mermaid:
-#ifdef ZN_WITH_WEBENGINE
-        // tests set this so headless CI machines never start Chromium
-        if (qEnvironmentVariableIsSet("ZN_DISABLE_WEBENGINE")) {
-            if (why)
-                *why = tr("Rendering is disabled (ZN_DISABLE_WEBENGINE).");
-            return false;
-        }
-        return true;
-#else
-        if (why)
-            *why = tr("This build has no Qt WebEngine, so Mermaid diagrams cannot be rendered.");
-        return false;
-#endif
+        return webAvailable(why);
     case DiagramKind::PlantUml:
-        if (plantUmlCommand().isEmpty()) {
+        if (!builtInPlantUml() && plantUmlCommand().isEmpty()) {
             if (why)
                 *why = tr("PlantUML is not installed. Install it (or Java and plantuml.jar) and set the command in Settings.");
             return false;
@@ -78,9 +107,13 @@ bool DiagramService::available(DiagramKind kind, QString* why) const {
     }
 }
 
+bool DiagramService::builtInPlantUml() const {
+    return configuredPlantUml().isEmpty() && webAvailable();
+}
+
 QString DiagramService::plantUmlCommand() const {
-    const QString configured = QSettings().value(QStringLiteral("plantuml/command")).toString().trimmed();
-    if (!configured.isEmpty())
+    const QString configured = configuredPlantUml();
+    if (!configured.isEmpty() || webAvailable())
         return configured;
     if (const QString exe = QStandardPaths::findExecutable(QStringLiteral("plantuml")); !exe.isEmpty())
         return exe;
@@ -116,11 +149,13 @@ QImage DiagramService::image(DiagramKind kind, const QString& source) {
     if (auto err = errors_.constFind(k); err != errors_.cend())
         return placeholder(kind, *err, true);
     QString why;
-    if (!available(kind, &why))
+    if (!available(kind, &why)) {
+        unavailable_.insert(QStringLiteral("%1: %2").arg(diagramKindLabel(kind), why));
         return placeholder(kind, why, true);
+    }
     if (source.trimmed().isEmpty())
         return placeholder(kind, tr("Empty diagram. Double-click to edit."), false);
-    start(kind, source, kind == DiagramKind::Mermaid && Theme::isDark(), {});
+    start(kind, source, {});
     return placeholder(kind, tr("Rendering %1…").arg(diagramKindLabel(kind)), false);
 }
 
@@ -139,25 +174,27 @@ void DiagramService::preview(DiagramKind kind, const QString& source, Callback c
         cb({}, why);
         return;
     }
-    start(kind, source, kind == DiagramKind::Mermaid && Theme::isDark(), std::move(cb));
+    start(kind, source, std::move(cb));
 }
 
-void DiagramService::start(DiagramKind kind, const QString& source, bool dark, Callback cb) {
+void DiagramService::start(DiagramKind kind, const QString& source, Callback cb) {
     const QString k = key(kind, source);
     const bool running = pending_.contains(k);
     pending_[k].append(std::move(cb));
     if (running)
         return;
     auto done = [this, k](const QByteArray& png, const QString& error) { finish(k, png, error, false); };
-    if (kind == DiagramKind::PlantUml) {
-        runPlantUml(source, done);
+    if (kind == DiagramKind::PlantUml && !builtInPlantUml()) {
+        runPlantUml(plantUmlText(source, true), done);
         return;
     }
 #ifdef ZN_WITH_WEBENGINE
-    web_->render(source, dark, done);
+    if (kind == DiagramKind::PlantUml)
+        plantUml_->render(plantUmlText(source, false), renderDark(kind), done);
+    else
+        mermaid_->render(source, renderDark(kind), done);
 #else
-    Q_UNUSED(dark);
-    done({}, tr("Mermaid needs Qt WebEngine"));
+    done({}, tr("%1 needs Qt WebEngine").arg(diagramKindLabel(kind)));
 #endif
 }
 
@@ -185,7 +222,7 @@ void DiagramService::finish(const QString& key, const QByteArray& png, const QSt
     emit rendered(key);
 }
 
-void DiagramService::runPlantUml(const QString& source, std::function<void(QByteArray, QString)> done) {
+void DiagramService::runPlantUml(const QString& text, std::function<void(QByteArray, QString)> done) {
     QStringList args = plantUmlArguments(plantUmlCommand());
     const QString program = args.takeFirst();
     auto* proc = new QProcess(this);
@@ -219,13 +256,6 @@ void DiagramService::runPlantUml(const QString& source, std::function<void(QByte
         complete({}, tr("PlantUML timed out"));
     });
     proc->start(program, args);
-    QString text = source;
-    if (!text.contains(QLatin1String("@start")))
-        text = QStringLiteral("@startuml\n") + text + QStringLiteral("\n@enduml\n");
-    // render at 2x like Mermaid; a dpi set by the note itself comes later and wins
-    static const QRegularExpression startLine(QStringLiteral(R"((@start\w+[^\n]*\n))"));
-    if (!text.contains(QLatin1String("skinparam dpi"), Qt::CaseInsensitive))
-        text.replace(startLine, QStringLiteral("\\1skinparam dpi 192\n"));
     proc->write(text.toUtf8());
     proc->closeWriteChannel();
 }
