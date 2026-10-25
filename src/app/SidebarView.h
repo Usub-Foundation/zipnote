@@ -49,9 +49,11 @@ class FolderTree : public QTreeView {
     Q_OBJECT
 public:
     using QTreeView::QTreeView;
+    bool isEditing() const { return state() == EditingState; }
 
 signals:
     void notesDropped(const QStringList& noteIds, const QModelIndex& target);
+    void editorClosed();  // a folder name editor closed, committed or not
 
 protected:
     void dragEnterEvent(QDragEnterEvent* e) override;
@@ -59,6 +61,8 @@ protected:
     void dropEvent(QDropEvent* e) override;
     void drawRow(QPainter* p, const QStyleOptionViewItem& opt, const QModelIndex& index) const override;
     void drawBranches(QPainter*, const QRect&, const QModelIndex&) const override {}
+    // the delegate's closeEditor signal and the view itself (moving the current row) both end up here
+    void closeEditor(QWidget* editor, QAbstractItemDelegate::EndEditHint hint) override;
 };
 
 class SidebarView : public QWidget {
@@ -99,6 +103,7 @@ private:
     bool tagsCollapsed_ = false;
     SidebarSelection selection_;
     bool rebuilding_ = false;
+    bool rebuildPending_ = false;  // a rebuild came in while a folder name was being edited
     QString signature_;
 };
 

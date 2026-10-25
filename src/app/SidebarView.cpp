@@ -213,6 +213,11 @@ void FolderTree::dropEvent(QDropEvent* e) {
     }
 }
 
+void FolderTree::closeEditor(QWidget* editor, QAbstractItemDelegate::EndEditHint hint) {
+    QTreeView::closeEditor(editor, hint);
+    emit editorClosed();
+}
+
 void FolderTree::drawRow(QPainter* p, const QStyleOptionViewItem& opt, const QModelIndex& index) const {
     QStyleOptionViewItem o = opt;
     o.rect = QRect(0, opt.rect.top(), viewport()->width(), opt.rect.height());
@@ -289,7 +294,18 @@ SidebarView::SidebarView(VaultController& vc, QWidget* parent) : QWidget(parent)
     connect(&model_, &QStandardItemModel::itemChanged, this, [this](QStandardItem* item) {
         if (rebuilding_ || item->data(KindRole).toInt() != SidebarSelection::Folder)
             return;
-        emit renameFolderRequested(item->data(IdRole).toString(), item->text());
+        // the rename rebuilds this model, and itemChanged comes from the model's own dataChanged slot: the
+        // tree gets the same dataChanged after us, so rebuilding here hands it an index into freed rows
+        QMetaObject::invokeMethod(this, [this, id = item->data(IdRole).toString(), name = item->text()] {
+            emit renameFolderRequested(id, name);
+        }, Qt::QueuedConnection);
+    });
+    connect(tree_, &FolderTree::editorClosed, this, [this] {
+        if (rebuildPending_)
+            QMetaObject::invokeMethod(this, [this] {
+                rebuildPending_ = false;
+                rebuild();
+            }, Qt::QueuedConnection);
     });
     connect(tags_, &TagCloud::tagClicked, this, [this](const QString& tag) {
         if (selection_.kind == SidebarSelection::Tag && selection_.id == tag)
@@ -340,6 +356,11 @@ void SidebarView::rebuild() {
     sig += QString::number(all);
     if (sig == signature_ && model_.rowCount() > 0)
         return;
+    // resetting the model would close the name editor and drop what was typed: rebuild once it closes
+    if (tree_->isEditing()) {
+        rebuildPending_ = true;
+        return;
+    }
     signature_ = sig;
     rebuilding_ = true;
     model_.clear();

@@ -10,6 +10,7 @@
 #include <QAction>
 #include <QApplication>
 #include <QLineEdit>
+#include <QPointer>
 #include <QStandardItemModel>
 #include <QStandardPaths>
 #include <QTemporaryDir>
@@ -126,6 +127,57 @@ private slots:
             return shot.pixelColor(QPoint(r.left() + 12, r.center().y()) * shot.devicePixelRatio());
         };
         QVERIFY(rowColor(QStringLiteral("Personal")) != rowColor(QStringLiteral("Projects")));
+    }
+
+    void nameFolder(const QString& text) {
+        auto* tree = sidebar->findChild<FolderTree*>();
+        QTRY_VERIFY(qobject_cast<QLineEdit*>(QApplication::focusWidget()));
+        const QPointer<QLineEdit> name = qobject_cast<QLineEdit*>(QApplication::focusWidget());
+        QVERIFY(tree->isAncestorOf(name));
+        QTest::qWait(50);  // pending zero timers, e.g. discarding the empty note that was left
+        QVERIFY2(name && QApplication::focusWidget() == name, "the name editor was closed");
+        name->selectAll();
+        QTest::keyClicks(name, text);
+        QTest::keyClick(name, Qt::Key_Return);
+        QTRY_VERIFY(!folderId(text).isEmpty());
+        QTest::qWait(50);  // the deferred editor deletion and repaints
+        QCOMPARE(sidebar->selection().id, folderId(text));
+    }
+
+    void newFolderIsNamedInPlace() {
+        // the rename rebuilds the sidebar model: it used to crash in the tree's dataChanged
+        trigger(QStringLiteral("New Folder"));
+        nameFolder(QStringLiteral("Work"));
+        emit sidebar->newFolderRequested(folderId(QStringLiteral("Work")));
+        nameFolder(QStringLiteral("Reports"));
+        QCOMPARE(vc->folders().last().parentId, folderId(QStringLiteral("Work")));
+    }
+
+    void newFolderFromAnEmptyNote() {
+        // leaving the empty note discards it, which used to rebuild the sidebar and close the name editor
+        sidebar->select({SidebarSelection::AllNotes, {}});
+        trigger(QStringLiteral("New Note"));
+        trigger(QStringLiteral("New Folder"));
+        nameFolder(QStringLiteral("Archive"));
+    }
+
+    void rebuildWaitsForTheNameEditor() {
+        trigger(QStringLiteral("New Folder"));
+        QTRY_VERIFY(qobject_cast<QLineEdit*>(QApplication::focusWidget()));
+        auto* name = qobject_cast<QLineEdit*>(QApplication::focusWidget());
+        auto* tree = sidebar->findChild<FolderTree*>();
+        auto* m = static_cast<QStandardItemModel*>(tree->model());
+        const auto countOf = [&](const QString& text) {
+            return m->findItems(text, Qt::MatchExactly | Qt::MatchRecursive).first()->index().data(Qt::UserRole + 3).toInt();
+        };
+        const int before = countOf(QStringLiteral("Personal"));
+        vc->createNote(folderId(QStringLiteral("Personal")), QStringLiteral("Later"));  // counts change meanwhile
+        QTest::qWait(50);
+        QCOMPARE(QApplication::focusWidget(), name);
+        QCOMPARE(countOf(QStringLiteral("Personal")), before);
+        // the name is kept, so no rename rebuilds the sidebar; moving the current row closes the editor
+        QTest::keyClick(name, Qt::Key_Up);
+        QTRY_COMPARE(countOf(QStringLiteral("Personal")), before + 1);
     }
 
     void newNoteSurvivesClearingItsTitle() {
