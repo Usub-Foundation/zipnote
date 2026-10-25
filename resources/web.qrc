@@ -66,6 +66,7 @@
     <file alias="excalidraw/excalidraw-assets/vendor-677e88ca78c86bddf13d.js">../third_party/web/excalidraw/excalidraw-assets/vendor-677e88ca78c86bddf13d.js</file>
     <file alias="excalidraw/excalidraw.production.min.js">../third_party/web/excalidraw/excalidraw.production.min.js</file>
     <file alias="mermaid/mermaid.min.js">../third_party/web/mermaid/mermaid.min.js</file>
+    <file alias="plantuml/c4.min.js">../third_party/web/plantuml/c4.min.js</file>
     <file alias="plantuml/emoji.js">../third_party/web/plantuml/emoji.js</file>
     <file alias="plantuml/openiconic.js">../third_party/web/plantuml/openiconic.js</file>
     <file alias="plantuml/plantuml.js">../third_party/web/plantuml/plantuml.js</file>

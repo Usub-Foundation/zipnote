@@ -44,8 +44,10 @@ C++23 · Qt 6 Widgets · libsodium · libzip. Builds on Linux, macOS and Windows
 - **PlantUML** — ```` ```plantuml ```` blocks, rendered by PlantUML's own engine compiled to JavaScript
   (`@plantuml/core` 1.2026.9, with Graphviz as WebAssembly), so neither Java nor Graphviz is needed. A local
   `plantuml` or `plantuml.jar` can be set instead in **File ▸ Settings**; it runs with the SANDBOX security
-  profile. Nothing is sent to a server. The standard library (`!include <C4/...>`, AWS, Azure...) is not
-  bundled; use a local PlantUML for it.
+  profile. Nothing is sent to a server. Of the standard library only C4 is bundled
+  (`!include <C4/C4_Container>`, C4-PlantUML 2.14); for the rest (AWS, Azure, icon sets) use a local PlantUML.
+  In the dark theme diagrams turn dark too, except those that choose their own colours (`skinparam ...Color`,
+  `<style>`, `!theme`, C4): they keep their white page.
 - **Excalidraw** — the full editor (0.17.6, offline) in a window; the scene is stored as an encrypted
   attachment, the note shows a PNG preview, and the drawing’s text is searchable.
 - Double-click a diagram to edit it: source on the left, live preview on the right, templates included.
@@ -128,8 +130,8 @@ show a placeholder, Excalidraw is unavailable, PlantUML needs a local `plantuml`
 `-DZN_BUILD_APP=OFF`. For a self-contained package use `macdeployqt` / `windeployqt`; both pick up
 WebEngine as well.
 
-PlantUML is built in. To use a local one instead (for the standard library, say), set `plantuml` or the
-path to `plantuml.jar` in **File ▸ Settings**.
+PlantUML is built in. To use a local one instead (for the whole standard library, say), set `plantuml` or
+the path to `plantuml.jar` in **File ▸ Settings**.
 
 ## Running
 
@@ -195,6 +197,6 @@ scribbling enabled, so use-after-free bugs crash instead of passing silently.
 ## License
 
 MIT, see [LICENSE](LICENSE). Bundled third-party code: mermaid, Excalidraw, React and PlantUML — MIT (license
-texts in `third_party/web/*/LICENSE`); Viz.js (MIT) with Graphviz (EPL-1.0) and Expat (MIT), see
-`third_party/web/plantuml/THIRD_PARTY.md`. Linked libraries: Qt (LGPLv3), libsodium (ISC), libzip
+texts in `third_party/web/*/LICENSE`); C4-PlantUML — MIT (`third_party/web/plantuml/c4.LICENSE.txt`); Viz.js
+(MIT) with Graphviz (EPL-1.0) and Expat (MIT), see `third_party/web/plantuml/THIRD_PARTY.md`. Linked libraries: Qt (LGPLv3), libsodium (ISC), libzip
 (BSD-3-Clause).

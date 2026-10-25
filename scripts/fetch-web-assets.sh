@@ -18,8 +18,14 @@ cp react-18.3.1/package/LICENSE "$dest/react/LICENSE"
 cp excalidraw-excalidraw-0.17.6/package/dist/excalidraw.production.min.js "$dest/excalidraw/"
 cp -r excalidraw-excalidraw-0.17.6/package/dist/excalidraw-assets/. "$dest/excalidraw/excalidraw-assets/"
 # PlantUML's own engine compiled to JavaScript (the MIT build) with Viz.js, Graphviz compiled to WebAssembly;
-# themes, emoji and Open Iconic are loaded on first use. The stdlib bundles (AWS, Azure, C4...) are left out.
+# themes, emoji and Open Iconic are loaded on first use.
 (cd plantuml-core-1.2026.9/package && cp plantuml.js viz-global.js themes.js emoji.js openiconic.js LICENSE "$dest/plantuml/")
+# Of PlantUML's standard library only C4 (C4-PlantUML 2.14.0, MIT): npm does not ship the library bundles, the
+# release archive does. The other bundles (AWS, Azure, icon sets) add up to about 100 MB.
+curl -fsSL -o js-plantuml.zip https://github.com/plantuml/plantuml/releases/download/v1.2026.9/js-plantuml-1.2026.9.zip
+echo "b91125a14801ae13142a5080a16597b0ea34dcbb90f18f84450d7ddd15098923  js-plantuml.zip" | shasum -a 256 -c --quiet
+unzip -p js-plantuml.zip c4.min.js > "$dest/plantuml/c4.min.js"
+curl -fsSL -o "$dest/plantuml/c4.LICENSE.txt" https://raw.githubusercontent.com/plantuml-stdlib/C4-PlantUML/v2.14.0/LICENSE
 cat > "$dest/plantuml/THIRD_PARTY.md" <<'NOTICE'
 # Third-party code in viz-global.js
 

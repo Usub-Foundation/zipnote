@@ -52,7 +52,7 @@ private:
         bool persisted = false;
     };
     bool webAvailable(QString* why = nullptr) const;
-    bool renderDark(DiagramKind kind) const;
+    bool renderDark(DiagramKind kind, const QString& source) const;
     void start(DiagramKind kind, const QString& source, Callback cb);
     void finish(const QString& key, const QByteArray& png, const QString& error, bool persist);
     void runPlantUml(const QString& text, std::function<void(QByteArray, QString)> done);

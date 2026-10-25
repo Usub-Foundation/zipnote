@@ -16,13 +16,25 @@ import { renderToString } from "qrc:/web/plantuml/plantuml.js";
 
 let zn = null;
 
-// PlantUML paints its default page colour (white, #1B1B1B in dark mode) under the diagram; without it the note
-// shows through, as under Mermaid diagrams. A background the diagram sets itself stays.
-function withoutDefaultBackground(svg) {
+// The page under the diagram. In dark mode PlantUML paints #1B1B1B, which goes, so the note shows through as under
+// Mermaid diagrams. Light renders get a white page: in the dark theme those are diagrams with colours of their own
+// (C4, !theme) that need one, and in the light theme the note is white anyway. A colour the diagram sets stays.
+function withPage(svg, dark) {
   const doc = new DOMParser().parseFromString(svg, "image/svg+xml");
-  const bg = doc.documentElement.querySelector(":scope > rect");
-  if (bg && bg.getAttribute("x") === "0" && bg.getAttribute("y") === "0" && /^#(ffffff|1b1b1b)$/i.test(bg.getAttribute("fill") || ""))
-    bg.remove();
+  const root = doc.documentElement;
+  const page = root.querySelector(":scope > rect");
+  if (page && page.getAttribute("x") === "0" && page.getAttribute("y") === "0") {
+    if (dark && /^#1b1b1b$/i.test(page.getAttribute("fill") || ""))
+      page.remove();
+  } else if (!dark) {
+    const vb = (root.getAttribute("viewBox") || "0 0 0 0").trim().split(/[\s,]+/);
+    const bg = /background(?:-color)?\s*:\s*([^;]+)/i.exec(root.getAttribute("style") || "");
+    const rect = doc.createElementNS("http://www.w3.org/2000/svg", "rect");
+    for (const [k, v] of [["x", vb[0]], ["y", vb[1]], ["width", vb[2]], ["height", vb[3]]])
+      rect.setAttribute(k, v);
+    rect.setAttribute("fill", bg ? bg[1].trim() : "#FFFFFF");
+    root.insertBefore(rect, root.firstChild);
+  }
   return new XMLSerializer().serializeToString(doc);
 }
 
@@ -31,7 +43,7 @@ window.znRender = (id, source, dark) => {
   const fail = (e) => zn.done(id, false, "", String((e && e.message) || e));
   renderToString(
     source.split(/\r\n|\r|\n/),
-    (svg) => svgToPng(withoutDefaultBackground(svg), 2).then((png) => zn.done(id, true, png, ""), fail),
+    (svg) => svgToPng(withPage(svg, dark), 2).then((png) => zn.done(id, true, png, ""), fail),
     fail,
     { dark });
 };

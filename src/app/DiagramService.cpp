@@ -38,6 +38,14 @@ QString plantUmlText(const QString& source, bool hiDpi) {
     return text;
 }
 
+// Colours chosen by the diagram itself (skinparam, <style>, !theme, or a standard library such as C4) are made for
+// a white page
+bool hasOwnLook(const QString& plantUml) {
+    static const QRegularExpression re(QStringLiteral(R"(^\s*(!theme\s|!include\s*<|skinparam\s+\w*colou?r\b|<style>))"),
+                                       QRegularExpression::MultilineOption | QRegularExpression::CaseInsensitiveOption);
+    return re.match(plantUml).hasMatch();
+}
+
 QImage decodePng(const QByteArray& png) {
     QImage img = QImage::fromData(png, "PNG");
     if (!img.isNull())
@@ -56,13 +64,16 @@ DiagramService::DiagramService(VaultController& vc, QObject* parent) : QObject(p
 
 DiagramService::~DiagramService() = default;
 
-// Mermaid and the built-in PlantUML follow the app theme; a local PlantUML always renders light
-bool DiagramService::renderDark(DiagramKind kind) const {
-    return Theme::isDark() && (kind == DiagramKind::Mermaid || (kind == DiagramKind::PlantUml && builtInPlantUml()));
+// Mermaid and the built-in PlantUML follow the app theme. A local PlantUML, and PlantUML diagrams with a look of
+// their own, render light, on their own white page.
+bool DiagramService::renderDark(DiagramKind kind, const QString& source) const {
+    if (!Theme::isDark())
+        return false;
+    return kind == DiagramKind::Mermaid || (kind == DiagramKind::PlantUml && builtInPlantUml() && !hasOwnLook(source));
 }
 
 QString DiagramService::key(DiagramKind kind, const QString& source) const {
-    return VaultController::renderKey(kind, source, renderDark(kind));
+    return VaultController::renderKey(kind, source, renderDark(kind, source));
 }
 
 void DiagramService::clearMemory() {
@@ -190,9 +201,9 @@ void DiagramService::start(DiagramKind kind, const QString& source, Callback cb)
     }
 #ifdef ZN_WITH_WEBENGINE
     if (kind == DiagramKind::PlantUml)
-        plantUml_->render(plantUmlText(source, false), renderDark(kind), done);
+        plantUml_->render(plantUmlText(source, false), renderDark(kind, source), done);
     else
-        mermaid_->render(source, renderDark(kind), done);
+        mermaid_->render(source, renderDark(kind, source), done);
 #else
     done({}, tr("%1 needs Qt WebEngine").arg(diagramKindLabel(kind)));
 #endif
