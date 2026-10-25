@@ -84,7 +84,8 @@ Limitations:
 
 Every push to `main` is built and tested on Linux, macOS and Windows by
 [GitHub Actions](https://github.com/Usub-Foundation/zipnote/actions/workflows/build.yml); each run keeps
-a Linux AppImage, a macOS `.dmg` (Apple Silicon) and a Windows `.zip` as artifacts. Tagged versions
+a Linux AppImage, macOS `.dmg`s for Apple Silicon (`arm64`) and Intel (`x86_64`) and a Windows `.zip`
+as artifacts. Tagged versions
 (`v*`) are published on the [Releases](https://github.com/Usub-Foundation/zipnote/releases) page.
 The packages are not notarized or signed with a developer certificate: on macOS open the app with
 right-click ▸ Open the first time (or remove the quarantine attribute, see below), on Windows confirm
@@ -105,7 +106,10 @@ open build-macos/ZipNotes.app
 scripts/build-macos.sh --bundle        # self-contained .app (Qt inside) and build-macos/ZipNotes.dmg
 ```
 
-The script installs `cmake ninja pkgconf qt libsodium libzip` from Homebrew. If CMake reports
+The script installs `cmake ninja pkgconf qt libsodium libzip` from Homebrew (the build tools only if they
+are not on `PATH` yet). Homebrew no longer has prebuilt Qt for Intel Macs; there, install Qt with WebEngine
+from the [Qt online installer](https://www.qt.io/download-qt-installer-oss) and run
+`QT_ROOT_DIR=~/Qt/6.10.2/macos scripts/build-macos.sh`. If CMake reports
 `Qt WebEngine not found`, the installed Qt has no WebEngine and the app is built without Mermaid,
 Excalidraw and the built-in PlantUML (`brew install plantuml` then). Shortcuts use ⌘ instead of Ctrl on a Mac.
 If you copy the `.dmg` to another Mac, macOS may call the app “damaged” because the signature is ad hoc:

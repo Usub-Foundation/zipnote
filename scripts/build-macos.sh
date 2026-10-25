@@ -3,6 +3,9 @@
 #
 #   scripts/build-macos.sh            build + tests  ->  build-macos/ZipNotes.app
 #   scripts/build-macos.sh --bundle   plus a self-contained app (Qt frameworks inside) and ZipNotes.dmg
+#
+# Qt comes from Homebrew unless QT_ROOT_DIR points at another Qt (the online installer's ~/Qt/6.x/macos, or
+# what install-qt-action sets in CI): Homebrew no longer builds Intel bottles, and its Qt from source takes hours.
 set -euo pipefail
 cd "$(dirname "$0")/.."
 
@@ -12,8 +15,13 @@ bundle=0
 xcode-select -p >/dev/null 2>&1 || { echo "Install the Xcode Command Line Tools first: xcode-select --install"; exit 1; }
 command -v brew >/dev/null || { echo "Install Homebrew first: https://brew.sh"; exit 1; }
 
-deps=(cmake ninja pkgconf qt libsodium libzip)
+deps=(libsodium libzip)
+[[ -n "${QT_ROOT_DIR:-}" ]] || deps+=(qt)
 missing=()
+# build tools that are already on PATH (Xcode's, a CI image's) are used as they are
+for tool in cmake:cmake ninja:ninja pkg-config:pkgconf; do
+  command -v "${tool%%:*}" >/dev/null || missing+=("${tool#*:}")
+done
 for d in "${deps[@]}"; do
   brew list --formula "$d" >/dev/null 2>&1 || missing+=("$d")
 done
@@ -57,7 +65,7 @@ deps() {  # libraries a Mach-O file loads, without its own install name
 # loading Qt straight from Homebrew. Without Homebrew the helper cannot start, and even with it the bundled
 # QtWebEngineCore it loads looks for its libraries relative to the helper: Mermaid and Excalidraw never ran.
 # Refer to bundled libraries through @rpath instead, give both executables an rpath to Contents/Frameworks
-# and drop rpaths that point back into Homebrew.
+# and drop absolute rpaths (into Homebrew, or into the Qt the app was built against).
 fix_bundle_paths() {
   local app=$1 f dep rp rel helper
   while IFS= read -r -d '' f; do
@@ -70,7 +78,7 @@ fix_bundle_paths() {
       [[ -e "$app/Contents/Frameworks/$rel" ]] || continue
       rewrite -change "$dep" "@rpath/$rel" "$f"
     done
-    for rp in $(rpaths "$f" | grep -E '^/(opt|usr/local)/' || true); do
+    for rp in $(rpaths "$f" | grep '^/' || true); do
       rewrite -delete_rpath "$rp" "$f"
     done
   done < <(macho_files "$app")
@@ -83,22 +91,22 @@ fix_bundle_paths() {
   fi
 }
 
-# Fails if a binary in the bundle still loads anything from Homebrew: on a Mac with Homebrew such a bundle
-# would work by accident, and break everywhere else.
+# Fails if a binary in the bundle still loads anything outside the bundle and the system (Homebrew, the Qt it
+# was built against): on the build Mac such a bundle works by accident, and breaks everywhere else.
 check_bundle() {
   local app=$1 f found bad=0
   while IFS= read -r -d '' f; do
-    found=$({ deps "$f"; rpaths "$f"; } | grep -E '^/(opt|usr/local)/' || true)
+    found=$({ deps "$f" | grep -vE '^(@|/usr/lib/|/System/)'; rpaths "$f" | grep '^/'; } || true)
     if [[ -n "$found" ]]; then
       echo "  ${f#"$app"/} refers to:"
       echo "$found" | sed 's/^/    /'
       bad=1
     fi
   done < <(macho_files "$app")
-  ((bad == 0)) || { echo "The bundle still refers to Homebrew"; return 1; }
+  ((bad == 0)) || { echo "The bundle still refers to libraries outside it"; return 1; }
 }
 
-qt_prefix=$(brew --prefix qt)
+qt_prefix=${QT_ROOT_DIR:-$(brew --prefix qt)}
 jobs=$(sysctl -n hw.ncpu)
 
 cmake -S . -B build-macos -G Ninja -DCMAKE_BUILD_TYPE=Release \

@@ -1,6 +1,7 @@
 # Builds and tests ZipNotes on Linux, macOS and Windows, and packages each platform:
 #   Linux    ZipNotes-linux-x86_64.AppImage  (linuxdeploy + Qt plugin)
 #   macOS    ZipNotes-macos-arm64.dmg        (scripts/build-macos.sh --bundle, ad-hoc signed)
+#            ZipNotes-macos-x86_64.dmg       (the same on Intel, with Qt's own binaries instead of Homebrew's)
 #   Windows  ZipNotes-windows-x64.zip        (windeployqt + vcpkg DLLs)
 # Each package is then started once: it creates a demo vault, opens a note with a Mermaid diagram and one with
 # a PlantUML diagram, waits for Qt WebEngine to render both and saves a screenshot (smoke-<platform> artifact);
@@ -114,20 +115,42 @@ jobs:
           if-no-files-found: error
 
   macos:
-    name: macOS arm64
-    runs-on: macos-15
+    name: macOS ${{ matrix.arch }}
+    runs-on: ${{ matrix.runner }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - arch: arm64
+            runner: macos-15
+          # Homebrew stopped building Intel bottles (Tier 3 since September 2026): its Qt would be compiled
+          # from source for hours, so the Intel build takes Qt from install-qt-action like Linux and Windows
+          - arch: x86_64
+            runner: macos-15-intel
+            official-qt: true
     env:
       HOMEBREW_NO_INSTALL_CLEANUP: 1
       HOMEBREW_NO_ENV_HINTS: 1
     steps:
       - uses: actions/checkout@v4
 
+      # sets QT_ROOT_DIR, which build-macos.sh uses instead of Homebrew's Qt
+      - uses: jurplel/install-qt-action@v4
+        if: matrix.official-qt
+        with:
+          version: ${{ env.QT_VERSION }}
+          host: mac
+          target: desktop
+          arch: clang_64
+          modules: ${{ env.QT_MODULES }}
+          cache: true
+
       # the same script users run locally: Homebrew dependencies, build, tests, macdeployqt, .dmg
       - name: Build, test and bundle
         run: scripts/build-macos.sh --bundle
 
       - name: Rename
-        run: mv build-macos/ZipNotes.dmg ZipNotes-macos-arm64.dmg
+        run: mv build-macos/ZipNotes.dmg ZipNotes-macos-${{ matrix.arch }}.dmg
 
       # the bundle after macdeployqt, i.e. what the .dmg contains; macOS has no timeout(1), perl's alarm does it
       - name: Smoke test
@@ -141,14 +164,14 @@ jobs:
       - uses: actions/upload-artifact@v4
         if: always()
         with:
-          name: smoke-macos
+          name: smoke-macos-${{ matrix.arch }}
           path: smoke-macos.png
           if-no-files-found: ignore
 
       - uses: actions/upload-artifact@v4
         with:
-          name: ZipNotes-macos-arm64
-          path: ZipNotes-macos-arm64.dmg
+          name: ZipNotes-macos-${{ matrix.arch }}
+          path: ZipNotes-macos-${{ matrix.arch }}.dmg
           if-no-files-found: error
 
   windows:
