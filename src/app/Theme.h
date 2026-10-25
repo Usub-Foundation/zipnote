@@ -25,6 +25,7 @@ struct ThemePalette {
     QColor accent;
     QColor selection;          // selected row when the list has focus
     QColor selectionInactive;  // selected row otherwise
+    QColor sidebarSelectionInactive;  // selected folder while the focus is in the list or the editor
     QColor hover;
     QColor searchHighlight;    // matched text in list cells and the editor
     QColor findCurrent;        // current match of Find in Note

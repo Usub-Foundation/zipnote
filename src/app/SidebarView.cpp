@@ -55,7 +55,7 @@ public:
             QPainterPath path;
             path.addRoundedRect(QRectF(r).adjusted(8, 1, -8, -1), 7, 7);
             const bool focus = opt.widget && opt.widget->hasFocus();
-            p->fillPath(path, focus ? pal.selection : (pal.dark ? QColor(255, 255, 255, 26) : QColor(0, 0, 0, 22)));
+            p->fillPath(path, focus ? pal.selection : pal.sidebarSelectionInactive);
         }
         const int depth = [&] {
             int d = 0;
@@ -216,6 +216,8 @@ void FolderTree::dropEvent(QDropEvent* e) {
 void FolderTree::drawRow(QPainter* p, const QStyleOptionViewItem& opt, const QModelIndex& index) const {
     QStyleOptionViewItem o = opt;
     o.rect = QRect(0, opt.rect.top(), viewport()->width(), opt.rect.height());
+    // QTreeView::drawRow is what adds the row's own state; the delegate is called directly here
+    o.state.setFlag(QStyle::State_Selected, selectionModel()->isSelected(index));
     itemDelegateForIndex(index)->paint(p, o, index);
 }
 

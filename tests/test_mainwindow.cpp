@@ -115,6 +115,19 @@ private slots:
         QCOMPARE(sidebar->selection().id, folderId(QStringLiteral("Projects")));
     }
 
+    void selectedFolderIsHighlighted() {
+        sidebar->select({SidebarSelection::Folder, folderId(QStringLiteral("Personal"))});
+        editor->setFocus();  // the highlight stays while the focus is elsewhere
+        auto* tree = sidebar->findChild<FolderTree*>();
+        auto* m = static_cast<QStandardItemModel*>(tree->model());
+        const QImage shot = tree->viewport()->grab().toImage();
+        const auto rowColor = [&](const QString& text) {
+            const QRect r = tree->visualRect(m->findItems(text, Qt::MatchExactly | Qt::MatchRecursive).first()->index());
+            return shot.pixelColor(QPoint(r.left() + 12, r.center().y()) * shot.devicePixelRatio());
+        };
+        QVERIFY(rowColor(QStringLiteral("Personal")) != rowColor(QStringLiteral("Projects")));
+    }
+
     void newNoteSurvivesClearingItsTitle() {
         sidebar->select({SidebarSelection::Folder, folderId(QStringLiteral("Personal"))});
         trigger(QStringLiteral("New Note"));

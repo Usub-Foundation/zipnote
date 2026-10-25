@@ -27,6 +27,7 @@ ThemePalette lightPalette() {
     p.accent = kAccent;
     p.selection = QColor(0xFE, 0xE3, 0x9A);
     p.selectionInactive = QColor(0xE6, 0xE6, 0xE4);
+    p.sidebarSelectionInactive = QColor(0xFC, 0xB8, 0x27, 80);
     p.hover = QColor(0, 0, 0, 12);
     p.searchHighlight = QColor(0xFC, 0xB8, 0x27, 120);
     p.findCurrent = QColor(0xFC, 0xB8, 0x27, 230);
@@ -54,6 +55,7 @@ ThemePalette darkPalette() {
     p.accent = kAccent;
     p.selection = QColor(0x6B, 0x51, 0x14);
     p.selectionInactive = QColor(0x3A, 0x3A, 0x3C);
+    p.sidebarSelectionInactive = QColor(0xFC, 0xB8, 0x27, 56);
     p.hover = QColor(255, 255, 255, 14);
     p.searchHighlight = QColor(0xFC, 0xB8, 0x27, 105);
     p.findCurrent = QColor(0xFC, 0xB8, 0x27, 210);
