@@ -122,8 +122,17 @@ if ((bundle)); then
   check_bundle "$app"
   # the binaries were rewritten; Apple Silicon only runs signed code, so sign ad hoc for local use
   codesign --force --deep --sign - "$app"
-  rm -f build-macos/ZipNotes.dmg
-  hdiutil create -volname ZipNotes -srcfolder "$app" -ov -format UDZO build-macos/ZipNotes.dmg
+  # hdiutil now and then fails with "Resource busy" while macOS is still looking at the fresh bundle
+  # (seen on CI runners); a few seconds later the same command works
+  for attempt in 1 2 3 4 5; do
+    rm -f build-macos/ZipNotes.dmg
+    if hdiutil create -volname ZipNotes -srcfolder "$app" -ov -format UDZO build-macos/ZipNotes.dmg; then
+      break
+    fi
+    ((attempt < 5)) || { echo "hdiutil failed $attempt times"; exit 1; }
+    echo "==> hdiutil failed, retrying in $((attempt * 5)) s"
+    sleep $((attempt * 5))
+  done
   echo "==> build-macos/ZipNotes.dmg"
 fi
 echo "==> open $app"
